@@ -1,10 +1,10 @@
-import {
+import type {
   QuestionGroup,
-  QuestionGroupSchema,
   Question,
   Option,
   Explanation,
 } from '../schemas/index.js';
+import { QuestionGroupSchema } from '../schemas/index.js';
 
 /**
  * Configuration for merging parser results
@@ -83,7 +83,7 @@ function assignPositions(questions: Question[], startPosition: number): Question
       ...question.attributes,
       position: startPosition + index,
     },
-  }));
+  } as Question));
 }
 
 /**
@@ -140,7 +140,6 @@ export function mergeQuestionGroups(
   }
 
   // Check for conflicting group-level attributes
-  const hasEMI = results.some(r => r.type === 'emi_single_select');
   const hasMultipleEMI = results.filter(r => r.type === 'emi_single_select').length > 1;
 
   if (hasMultipleEMI) {

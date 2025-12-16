@@ -7,7 +7,7 @@ import pdf from 'pdf-parse';
  * Custom error class for PDF loader errors
  */
 export class PdfLoaderError extends Error {
-  constructor(message: string, public readonly cause?: Error) {
+  constructor(message: string, public override readonly cause?: Error) {
     super(message);
     this.name = 'PdfLoaderError';
   }
@@ -86,7 +86,7 @@ export async function extractPages(
     const totalPages = data.numpages;
 
     // Validate page range
-    if (pages.length === 0 || pages.length > 2) {
+    if (pages.length > 2) {
       throw new PdfLoaderError(
         `Invalid page range format: Expected [page] or [startPage, endPage]`
       );
@@ -118,10 +118,8 @@ export async function extractPages(
     // This is a placeholder implementation
     // You'll need to install and use a package like pdf-to-png-converter
 
-    // For now, return placeholder buffers
+    // For now, throw an error indicating the feature is not yet implemented
     // In production, this should convert each page to a PNG/JPEG image
-    const pageBuffers: Buffer[] = [];
-
     throw new PdfLoaderError(
       `PDF-to-image conversion not yet implemented. ` +
       `Please install pdf-to-png-converter or similar package. ` +
@@ -176,9 +174,23 @@ export async function getPdfMetadata(pdfBuffer: Buffer): Promise<{
   try {
     const data = await pdf(pdfBuffer);
 
-    return {
+    const result: {
+      numPages: number;
+      info?: {
+        Title?: string;
+        Author?: string;
+        Subject?: string;
+        Creator?: string;
+        Producer?: string;
+        CreationDate?: Date;
+        ModDate?: Date;
+      };
+    } = {
       numPages: data.numpages,
-      info: data.info ? {
+    };
+
+    if (data.info) {
+      result.info = {
         Title: data.info.Title,
         Author: data.info.Author,
         Subject: data.info.Subject,
@@ -186,8 +198,10 @@ export async function getPdfMetadata(pdfBuffer: Buffer): Promise<{
         Producer: data.info.Producer,
         CreationDate: data.info.CreationDate,
         ModDate: data.info.ModDate,
-      } : undefined,
-    };
+      };
+    }
+
+    return result;
   } catch (error) {
     throw new PdfLoaderError(
       `Failed to get PDF metadata`,

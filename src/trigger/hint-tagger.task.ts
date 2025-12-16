@@ -42,6 +42,9 @@ export const hintTaggerTask = task({
       // Process each hint image
       for (let imageIndex = 0; imageIndex < payload.hints.length; imageIndex++) {
         const hintBuffer = payload.hints[imageIndex];
+        if (!hintBuffer) {
+          throw new Error(`Hint buffer at index ${imageIndex} is undefined`);
+        }
 
         console.log(`[hint-tagger] Analyzing hint image ${imageIndex + 1}/${payload.hints.length}...`);
 

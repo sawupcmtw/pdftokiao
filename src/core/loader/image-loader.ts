@@ -6,7 +6,7 @@ import { extname } from 'path';
  * Custom error class for image loader errors
  */
 export class ImageLoaderError extends Error {
-  constructor(message: string, public readonly cause?: Error) {
+  constructor(message: string, public override readonly cause?: Error) {
     super(message);
     this.name = 'ImageLoaderError';
   }

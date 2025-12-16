@@ -11,18 +11,21 @@ function parsePageRange(rangeStr: string): [number] | [number, number] {
   const parts = rangeStr.split(',').map(s => parseInt(s.trim(), 10));
 
   if (parts.length === 1) {
-    if (isNaN(parts[0]) || parts[0] < 1) {
+    const page = parts[0];
+    if (page === undefined || isNaN(page) || page < 1) {
       throw new Error('Invalid page number. Must be a positive integer.');
     }
-    return [parts[0]];
+    return [page];
   } else if (parts.length === 2) {
-    if (parts.some(isNaN) || parts.some(p => p < 1)) {
+    const startPage = parts[0];
+    const endPage = parts[1];
+    if (startPage === undefined || endPage === undefined || isNaN(startPage) || isNaN(endPage) || startPage < 1 || endPage < 1) {
       throw new Error('Invalid page range. Both pages must be positive integers.');
     }
-    if (parts[0] > parts[1]) {
+    if (startPage > endPage) {
       throw new Error('Invalid page range. Start page must be <= end page.');
     }
-    return [parts[0], parts[1]];
+    return [startPage, endPage];
   } else {
     throw new Error('Invalid page range format. Use "1" for single page or "1,3" for range.');
   }
@@ -96,7 +99,7 @@ export function createParseCommand(): Command {
 
         // 4. Validate input against schema
         console.log('\nValidating input schema...');
-        const input = ParseInputSchema.parse({
+        ParseInputSchema.parse({
           pdf: pdfBuffer,
           pages,
           hints: hintBuffers,

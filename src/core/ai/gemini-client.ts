@@ -29,7 +29,7 @@ export interface GenerateOptions<T extends z.ZodType> {
 export class GeminiError extends Error {
   constructor(
     message: string,
-    public readonly cause?: unknown,
+    public override readonly cause?: unknown,
   ) {
     super(message);
     this.name = 'GeminiError';
@@ -99,7 +99,7 @@ export async function generateStructured<T extends z.ZodType>(
   }));
 
   // Combine text and images into messages
-  const content: Array<{ type: 'text' | 'image'; text?: string; image?: string }> = [
+  const content: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [
     { type: 'text', text: prompt },
     ...imageContent,
   ];

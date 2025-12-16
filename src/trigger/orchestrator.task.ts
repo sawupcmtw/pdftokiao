@@ -1,16 +1,17 @@
 import { task } from '@trigger.dev/sdk/v3';
 import { z } from 'zod';
 import { loadImages } from '../core/loader/index.js';
-import { extractPages } from '../core/loader/index.js';
-import type { QuestionGroup, Question } from '../core/schemas/index.js';
-import { hintTaggerTask } from './hint-tagger.task.js';
-import { pageAnalyzerTask } from './page-analyzer.task.js';
-import {
-  singleSelectParserTask,
-  multiSelectParserTask,
-  fillInParserTask,
-  shortAnswerParserTask,
-} from './parsers/index.js';
+// import { extractPages } from '../core/loader/index.js';
+import type { QuestionGroup } from '../core/schemas/index.js';
+// Unused imports - needed when orchestrator is fully implemented
+// import { hintTaggerTask } from './hint-tagger.task.js';
+// import { pageAnalyzerTask } from './page-analyzer.task.js';
+// import {
+//   singleSelectParserTask,
+//   multiSelectParserTask,
+//   fillInParserTask,
+//   shortAnswerParserTask,
+// } from './parsers/index.js';
 
 /**
  * Input schema for orchestrator task

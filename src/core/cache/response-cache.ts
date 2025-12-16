@@ -12,7 +12,7 @@ const CACHE_CONFIG = {
 /**
  * Singleton LRU cache instance for AI responses
  */
-const cache = new LRUCache<string, unknown>(CACHE_CONFIG);
+const cache = new LRUCache<string, any>(CACHE_CONFIG);
 
 /**
  * Get a cached value by key

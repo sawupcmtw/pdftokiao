@@ -118,12 +118,13 @@ export const EMISingleSelectQuestionAttributesSchema = BaseQuestionAttributesSch
 
 /**
  * Base question schema with common structure
+ * Note: Not currently used but kept for potential future use
  */
-const BaseQuestionSchema = z.object({
-  attributes: BaseQuestionAttributesSchema,
-  meta: z.record(z.any()).optional(),
-  explanation: ExplanationSchema.optional(),
-});
+// const _BaseQuestionSchema = z.object({
+//   attributes: BaseQuestionAttributesSchema,
+//   meta: z.record(z.any()).optional(),
+//   explanation: ExplanationSchema.optional(),
+// });
 
 /**
  * Schema for Single-select question

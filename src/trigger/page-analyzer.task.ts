@@ -1,7 +1,7 @@
 import { task } from '@trigger.dev/sdk/v3';
 import { z } from 'zod';
 import { generateStructured } from '../core/ai/gemini-client.js';
-import { PageMapSchema, type PageMap, type HintTag } from '../core/schemas/index.js';
+import { PageMapSchema } from '../core/schemas/index.js';
 
 /**
  * Input schema for page analyzer task
