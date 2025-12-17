@@ -1,42 +1,18 @@
 {
-  "name": "pdftokiao",
-  "version": "1.0.0",
-  "description": "PDF to Kiao Parser - Convert PDF materials to Kiao import format",
-  "type": "module",
-  "main": "./dist/index.js",
+  "author": "",
   "bin": {
     "pdftokiao": "./dist/cli/index.js"
   },
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\"",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "clean": "rm -rf dist"
-  },
-  "keywords": [
-    "pdf",
-    "parser",
-    "kiao",
-    "education",
-    "ai"
-  ],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.13.1",
   "dependencies": {
     "@ai-sdk/google": "^1.0.0",
-    "@trigger.dev/sdk": "^3.0.0",
     "ai": "^4.0.0",
     "commander": "^12.0.0",
+    "dotenv": "^17.2.3",
     "lru-cache": "^11.0.0",
     "pdf-parse": "^1.0.0",
     "zod": "^3.0.0"
   },
+  "description": "PDF to Kiao Parser - Convert PDF materials to Kiao import format",
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/pdf-parse": "^1.1.4",
@@ -46,5 +22,29 @@
     "prettier": "^3.0.0",
     "typescript": "^5.0.0",
     "vitest": "^2.0.0"
-  }
+  },
+  "keywords": [
+    "pdf",
+    "parser",
+    "kiao",
+    "education",
+    "ai"
+  ],
+  "license": "ISC",
+  "main": "./dist/index.js",
+  "name": "pdftokiao",
+  "packageManager": "pnpm@10.13.1",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "dev": "tsc --watch",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "type": "module",
+  "version": "1.0.0"
 }

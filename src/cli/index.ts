@@ -1,9 +1,10 @@
 #!/usr/bin/env node
+import 'dotenv/config';
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { createParseCommand } from './commands/index.js';
+import { createParseCommand, createTestCommand } from './commands/index.js';
 
 // Get package.json for version info
 const __filename = fileURLToPath(import.meta.url);
@@ -19,8 +20,9 @@ program
   .description('PDF to Kiao Parser - Convert PDF materials to Kiao import format')
   .version(packageJson.version);
 
-// Add parse command
+// Add commands
 program.addCommand(createParseCommand());
+program.addCommand(createTestCommand());
 
 // Parse arguments and execute
 program.parse(process.argv);

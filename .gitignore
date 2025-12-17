@@ -38,3 +38,7 @@ pnpm-debug.log*
 
 # Trigger.dev
 .trigger
+
+.claude
+
+output

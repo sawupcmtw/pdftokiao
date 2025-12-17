@@ -3,6 +3,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join, resolve } from 'path';
 import { loadPdf, loadImages, PdfLoaderError, ImageLoaderError } from '../../core/loader/index.js';
 import { ParseInputSchema } from '../../core/schemas/index.js';
+import { orchestrate } from '../../trigger/index.js';
 
 /**
  * Parse page range string (e.g., "1" or "1,3") into tuple
@@ -109,33 +110,19 @@ export function createParseCommand(): Command {
         });
         console.log('  Input validated successfully');
 
-        // 5. Process the PDF
-        console.log('\n=== Processing Pipeline ===');
-        console.log('Note: Task orchestration not yet implemented.');
-        console.log('This CLI will trigger the Trigger.dev orchestrator task when implemented.\n');
+        // 5. Run the orchestrator pipeline
+        console.log('\n=== Running Pipeline ===\n');
 
-        // TODO: When Trigger.dev tasks are implemented, call the orchestrator:
-        // const result = await orchestratorTask.triggerAndWait(input);
+        const hintPaths = options.hints ? options.hints.map((p: string) => resolve(p)) : [];
 
-        // For now, create a placeholder output structure
-        console.log('Creating placeholder output structure...');
-        const output = {
-          data: {
-            type: 'question_group',
-            attributes: {
-              material_id: materialId,
-              import_key: importKey,
-            },
-            questions: [],
-          },
-          meta: {
-            pages: pages,
-            instruction: options.instruction || null,
-            hintsProvided: hintBuffers.length,
-            status: 'pending_implementation',
-            message: 'Orchestrator task integration pending',
-          },
-        };
+        const output = await orchestrate({
+          pdfPath,
+          pages,
+          hintPaths,
+          instruction: options.instruction,
+          materialId,
+          importKey,
+        });
 
         // 6. Create output directory
         console.log(`\nCreating output directory: ${outputDir}`);
@@ -155,10 +142,6 @@ export function createParseCommand(): Command {
         // 8. Success message
         console.log('\n=== Success ===');
         console.log(`Output written to: ${outputPath}`);
-        console.log('\nNext steps:');
-        console.log('  1. Implement Trigger.dev orchestrator task');
-        console.log('  2. Integrate task calling in this CLI command');
-        console.log('  3. Test with real PDF materials\n');
 
       } catch (error) {
         console.error('\n=== Error ===');

@@ -1,12 +1,10 @@
 import { z } from 'zod';
 
 /**
- * Schema for audio URLs - can be either a single URL string or an object with named audio tracks
+ * Schema for audio URLs - single URL string
+ * Note: Simplified from union type due to Gemini API schema limitations with z.record()
  */
-export const AudioUrlsSchema = z.union([
-  z.string().url(),
-  z.record(z.string(), z.string().url()),
-]);
+export const AudioUrlsSchema = z.string().url();
 
 /**
  * Schema for Explanation - includes note, translation, and vocabs_note
@@ -74,8 +72,8 @@ export const BaseQuestionAttributesSchema = z.object({
   /** Answer array (array of arrays for multiple blanks/possibilities) */
   answer: z.array(z.array(z.string())),
 
-  /** Custom data */
-  custom: z.any().nullable().optional(),
+  /** Custom data - JSON string for flexibility */
+  custom: z.string().nullable().optional(),
 
   /** Blank identifier for fill-in questions with numbered blanks */
   blank_identifier: z.string().optional(),
@@ -131,7 +129,6 @@ export const EMISingleSelectQuestionAttributesSchema = BaseQuestionAttributesSch
  */
 export const SingleSelectQuestionSchema = z.object({
   attributes: SingleSelectQuestionAttributesSchema,
-  meta: z.record(z.any()).optional(),
   explanation: ExplanationSchema.optional(),
   options: z.array(OptionSchema),
 });
@@ -141,7 +138,6 @@ export const SingleSelectQuestionSchema = z.object({
  */
 export const MultiSelectQuestionSchema = z.object({
   attributes: MultiSelectQuestionAttributesSchema,
-  meta: z.record(z.any()).optional(),
   explanation: ExplanationSchema.optional(),
   options: z.array(OptionSchema),
 });
@@ -151,7 +147,6 @@ export const MultiSelectQuestionSchema = z.object({
  */
 export const FillInQuestionSchema = z.object({
   attributes: FillInQuestionAttributesSchema,
-  meta: z.record(z.any()).optional(),
   explanation: ExplanationSchema.optional(),
 });
 
@@ -160,7 +155,6 @@ export const FillInQuestionSchema = z.object({
  */
 export const ShortAnswerQuestionSchema = z.object({
   attributes: ShortAnswerQuestionAttributesSchema,
-  meta: z.record(z.any()).optional(),
   explanation: ExplanationSchema.optional(),
 });
 
@@ -169,7 +163,6 @@ export const ShortAnswerQuestionSchema = z.object({
  */
 export const EMISingleSelectQuestionSchema = z.object({
   attributes: EMISingleSelectQuestionAttributesSchema,
-  meta: z.record(z.any()).optional(),
   explanation: ExplanationSchema.optional(),
 });
 

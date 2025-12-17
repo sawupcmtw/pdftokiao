@@ -1,6 +1,5 @@
-import { task } from '@trigger.dev/sdk/v3';
 import { z } from 'zod';
-import { generateStructured } from '../../core/ai/gemini-client.js';
+import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js';
 import {
   MultiSelectQuestionSchema,
   type MultiSelectQuestion,
@@ -10,8 +9,13 @@ import {
  * Input schema for multi-select parser
  */
 const MultiSelectParserInputSchema = z.object({
-  /** PDF page buffers containing the question */
-  pages: z.array(z.instanceof(Buffer)),
+  /** PDF file as Buffer */
+  pdf: z.instanceof(Buffer),
+
+  /** Page range containing this question - [start] or [start, end] */
+  pages: z.tuple([z.number().int().positive()]).or(
+    z.tuple([z.number().int().positive(), z.number().int().positive()])
+  ),
 
   /** Description from page analyzer */
   description: z.string(),
@@ -26,31 +30,39 @@ const MultiSelectParserInputSchema = z.object({
   instruction: z.string().optional(),
 });
 
-type MultiSelectParserInput = z.infer<typeof MultiSelectParserInputSchema>;
+export type MultiSelectParserInput = z.infer<typeof MultiSelectParserInputSchema>;
+
+/** Output with metrics for aggregation */
+export interface MultiSelectParserResult {
+  question: MultiSelectQuestion;
+  metrics: CallMetrics;
+}
 
 /**
  * Parse multi-select questions
  *
- * This task parses multi-select (multiple choice with multiple answers) questions from PDF pages.
+ * This function parses multi-select (multiple choice with multiple answers) questions from PDF pages.
  * It extracts:
  * - Question text, latex, audio URLs, image URL
  * - Options with symbols, text, latex, audio, and images
  * - Multiple correct answers
  * - Optional explanations for question and options
  */
-export const multiSelectParserTask = task({
-  id: 'parser-multi-select',
-  run: async (payload: MultiSelectParserInput): Promise<MultiSelectQuestion> => {
-    try {
-      console.log(`[parser-multi-select] Parsing question at position ${payload.position} (crossId: ${payload.crossId})...`);
+export async function parseMultiSelect(payload: MultiSelectParserInput): Promise<MultiSelectParserResult> {
+  const startPage = payload.pages[0];
+  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
+  const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`;
 
-      // Create prompt for parsing
-      const prompt = `Parse this multi-select (multiple choice with multiple correct answers) question from the PDF pages.
+  try {
+    console.log(`[parser-multi-select] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`);
+
+    // Create prompt for parsing
+    const prompt = `Parse the multi-select (multiple choice with multiple correct answers) question found on ${pageRange} of this PDF.
 
 Description: ${payload.description}
 ${payload.instruction ? `\nAdditional instructions: ${payload.instruction}` : ''}
 
-Extract the following information:
+Focus only on ${pageRange} and extract the following information:
 
 1. Question attributes:
    - position: ${payload.position}
@@ -79,25 +91,30 @@ Important: This is a multi-select question, so there may be multiple correct ans
 
 Return the complete question in the import API format.`;
 
-      // Use Gemini to parse the question
-      const question = await generateStructured({
-        prompt,
-        images: payload.pages,
-        schema: MultiSelectQuestionSchema,
-        cacheKey: `multi-select-${payload.crossId}-${payload.position}`,
-      });
+    // Use Gemini to parse the question from PDF
+    const { object: question, metrics } = await generateStructured({
+      prompt,
+      pdf: payload.pdf,
+      schema: MultiSelectQuestionSchema,
+      cacheKey: `multi-select-${payload.crossId}-${payload.position}`,
+    });
 
-      console.log(
-        `[parser-multi-select] Successfully parsed question ${payload.position} ` +
-        `with ${question.options.length} options and ${question.attributes.answer[0]?.length || 0} correct answers`
-      );
+    // Log metrics
+    const metricsStr = metrics.cacheHit
+      ? 'CACHE HIT'
+      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
+    console.log(`[parser-multi-select] Q${payload.position}: ${metricsStr}`);
 
-      return question;
-    } catch (error) {
-      console.error('[parser-multi-select] Error parsing question:', error);
-      throw new Error(
-        `Failed to parse multi-select question: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
-  },
-});
+    console.log(
+      `[parser-multi-select] Successfully parsed question ${payload.position} ` +
+      `with ${question.options.length} options and ${question.attributes.answer[0]?.length || 0} correct answers`
+    );
+
+    return { question, metrics };
+  } catch (error) {
+    console.error('[parser-multi-select] Error parsing question:', error);
+    throw new Error(
+      `Failed to parse multi-select question: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}

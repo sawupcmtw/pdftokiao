@@ -1,55 +1,59 @@
-import { task } from '@trigger.dev/sdk/v3';
 import { z } from 'zod';
-import { generateStructured } from '../core/ai/gemini-client.js';
+import { generateStructured, type CallMetrics } from '../core/ai/gemini-client.js';
 import { HintTagSchema, type HintTag } from '../core/schemas/index.js';
 
 /**
- * Input schema for hint tagger task
+ * Input schema for hint tagger
  */
 const HintTaggerInputSchema = z.object({
   /** Array of hint image Buffers */
   hints: z.array(z.instanceof(Buffer)),
 });
 
-type HintTaggerInput = z.infer<typeof HintTaggerInputSchema>;
+export type HintTaggerInput = z.infer<typeof HintTaggerInputSchema>;
 
 /**
- * Output schema for hint tagger task
+ * Output schema for hint tagger
  */
 const HintTaggerOutputSchema = z.object({
   /** Array of hint tags with question type detection */
   tags: z.array(HintTagSchema),
 });
 
-type HintTaggerOutput = z.infer<typeof HintTaggerOutputSchema>;
+export type HintTaggerOutput = z.infer<typeof HintTaggerOutputSchema>;
+
+/** Output with metrics for aggregation */
+export interface HintTaggerResult {
+  output: HintTaggerOutput;
+  metrics: CallMetrics[];
+}
 
 /**
- * Agent 1: Tag hint images
+ * Tag hint images
  *
- * This task analyzes hint images to detect question types and generate descriptions.
+ * This function analyzes hint images to detect question types and generate descriptions.
  * It processes each hint image using Gemini to identify:
  * - Question type (single_select, multi_select, fill_in, short_answer)
  * - Description of the hint content
  */
-export const hintTaggerTask = task({
-  id: 'hint-tagger',
-  run: async (payload: HintTaggerInput): Promise<HintTaggerOutput> => {
-    try {
-      console.log(`[hint-tagger] Processing ${payload.hints.length} hint images...`);
+export async function tagHints(payload: HintTaggerInput): Promise<HintTaggerResult> {
+  try {
+    console.log(`[hint-tagger] Processing ${payload.hints.length} hint images...`);
 
-      const tags: HintTag[] = [];
+    const tags: HintTag[] = [];
+    const allMetrics: CallMetrics[] = [];
 
-      // Process each hint image
-      for (let imageIndex = 0; imageIndex < payload.hints.length; imageIndex++) {
-        const hintBuffer = payload.hints[imageIndex];
-        if (!hintBuffer) {
-          throw new Error(`Hint buffer at index ${imageIndex} is undefined`);
-        }
+    // Process each hint image
+    for (let imageIndex = 0; imageIndex < payload.hints.length; imageIndex++) {
+      const hintBuffer = payload.hints[imageIndex];
+      if (!hintBuffer) {
+        throw new Error(`Hint buffer at index ${imageIndex} is undefined`);
+      }
 
-        console.log(`[hint-tagger] Analyzing hint image ${imageIndex + 1}/${payload.hints.length}...`);
+      console.log(`[hint-tagger] Analyzing hint image ${imageIndex + 1}/${payload.hints.length}...`);
 
-        // Create prompt for hint analysis
-        const prompt = `Analyze this hint image and determine the question type.
+      // Create prompt for hint analysis
+      const prompt = `Analyze this hint image and determine the question type.
 
 Question types:
 - single_select: Multiple choice question with one correct answer
@@ -63,35 +67,42 @@ Provide:
 
 Return the result in the specified format.`;
 
-        // Use Gemini to analyze the hint image
-        const result = await generateStructured({
-          prompt,
-          images: [hintBuffer],
-          schema: z.object({
-            type: z.enum(['single_select', 'multi_select', 'fill_in', 'short_answer']),
-            description: z.string(),
-          }),
-          cacheKey: `hint-tag-${imageIndex}`,
-        });
+      // Use Gemini to analyze the hint image
+      const { object: result, metrics } = await generateStructured({
+        prompt,
+        images: [hintBuffer],
+        schema: z.object({
+          type: z.enum(['single_select', 'multi_select', 'fill_in', 'short_answer']),
+          description: z.string(),
+        }),
+        cacheKey: `hint-tag-${imageIndex}`,
+      });
 
-        // Add the tag with image index
-        tags.push({
-          imageIndex,
-          type: result.type,
-          description: result.description,
-        });
+      allMetrics.push(metrics);
 
-        console.log(`[hint-tagger] Hint ${imageIndex + 1}: type=${result.type}, description="${result.description}"`);
-      }
+      // Log metrics
+      const metricsStr = metrics.cacheHit
+        ? 'CACHE HIT'
+        : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
+      console.log(`[hint-tagger] Hint ${imageIndex + 1}: ${metricsStr}`);
 
-      console.log(`[hint-tagger] Completed tagging ${tags.length} hints`);
+      // Add the tag with image index
+      tags.push({
+        imageIndex,
+        type: result.type,
+        description: result.description,
+      });
 
-      return { tags };
-    } catch (error) {
-      console.error('[hint-tagger] Error processing hints:', error);
-      throw new Error(
-        `Failed to tag hint images: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      console.log(`[hint-tagger] Hint ${imageIndex + 1}: type=${result.type}, description="${result.description}"`);
     }
-  },
-});
+
+    console.log(`[hint-tagger] Completed tagging ${tags.length} hints`);
+
+    return { output: { tags }, metrics: allMetrics };
+  } catch (error) {
+    console.error('[hint-tagger] Error processing hints:', error);
+    throw new Error(
+      `Failed to tag hint images: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}

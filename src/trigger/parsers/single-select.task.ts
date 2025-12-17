@@ -1,6 +1,5 @@
-import { task } from '@trigger.dev/sdk/v3';
 import { z } from 'zod';
-import { generateStructured } from '../../core/ai/gemini-client.js';
+import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js';
 import {
   SingleSelectQuestionSchema,
   type SingleSelectQuestion,
@@ -10,8 +9,13 @@ import {
  * Input schema for single-select parser
  */
 const SingleSelectParserInputSchema = z.object({
-  /** PDF page buffers containing the question */
-  pages: z.array(z.instanceof(Buffer)),
+  /** PDF file as Buffer */
+  pdf: z.instanceof(Buffer),
+
+  /** Page range containing this question - [start] or [start, end] */
+  pages: z.tuple([z.number().int().positive()]).or(
+    z.tuple([z.number().int().positive(), z.number().int().positive()])
+  ),
 
   /** Description from page analyzer */
   description: z.string(),
@@ -26,31 +30,39 @@ const SingleSelectParserInputSchema = z.object({
   instruction: z.string().optional(),
 });
 
-type SingleSelectParserInput = z.infer<typeof SingleSelectParserInputSchema>;
+export type SingleSelectParserInput = z.infer<typeof SingleSelectParserInputSchema>;
+
+/** Output with metrics for aggregation */
+export interface SingleSelectParserResult {
+  question: SingleSelectQuestion;
+  metrics: CallMetrics;
+}
 
 /**
  * Parse single-select questions
  *
- * This task parses single-select (multiple choice with one answer) questions from PDF pages.
+ * This function parses single-select (multiple choice with one answer) questions from PDF pages.
  * It extracts:
  * - Question text, latex, audio URLs, image URL
  * - Options with symbols, text, latex, audio, and images
  * - Correct answer
  * - Optional explanations for question and options
  */
-export const singleSelectParserTask = task({
-  id: 'parser-single-select',
-  run: async (payload: SingleSelectParserInput): Promise<SingleSelectQuestion> => {
-    try {
-      console.log(`[parser-single-select] Parsing question at position ${payload.position} (crossId: ${payload.crossId})...`);
+export async function parseSingleSelect(payload: SingleSelectParserInput): Promise<SingleSelectParserResult> {
+  const startPage = payload.pages[0];
+  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
+  const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`;
 
-      // Create prompt for parsing
-      const prompt = `Parse this single-select (multiple choice) question from the PDF pages.
+  try {
+    console.log(`[parser-single-select] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`);
+
+    // Create prompt for parsing
+    const prompt = `Parse the single-select (multiple choice) question found on ${pageRange} of this PDF.
 
 Description: ${payload.description}
 ${payload.instruction ? `\nAdditional instructions: ${payload.instruction}` : ''}
 
-Extract the following information:
+Focus only on ${pageRange} and extract the following information:
 
 1. Question attributes:
    - position: ${payload.position}
@@ -77,25 +89,30 @@ Extract the following information:
 
 Return the complete question in the import API format.`;
 
-      // Use Gemini to parse the question
-      const question = await generateStructured({
-        prompt,
-        images: payload.pages,
-        schema: SingleSelectQuestionSchema,
-        cacheKey: `single-select-${payload.crossId}-${payload.position}`,
-      });
+    // Use Gemini to parse the question from PDF
+    const { object: question, metrics } = await generateStructured({
+      prompt,
+      pdf: payload.pdf,
+      schema: SingleSelectQuestionSchema,
+      cacheKey: `single-select-${payload.crossId}-${payload.position}`,
+    });
 
-      console.log(
-        `[parser-single-select] Successfully parsed question ${payload.position} ` +
-        `with ${question.options.length} options`
-      );
+    // Log metrics
+    const metricsStr = metrics.cacheHit
+      ? 'CACHE HIT'
+      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
+    console.log(`[parser-single-select] Q${payload.position}: ${metricsStr}`);
 
-      return question;
-    } catch (error) {
-      console.error('[parser-single-select] Error parsing question:', error);
-      throw new Error(
-        `Failed to parse single-select question: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
-  },
-});
+    console.log(
+      `[parser-single-select] Successfully parsed question ${payload.position} ` +
+      `with ${question.options.length} options`
+    );
+
+    return { question, metrics };
+  } catch (error) {
+    console.error('[parser-single-select] Error parsing question:', error);
+    throw new Error(
+      `Failed to parse single-select question: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}

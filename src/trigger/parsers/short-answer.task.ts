@@ -1,6 +1,5 @@
-import { task } from '@trigger.dev/sdk/v3';
 import { z } from 'zod';
-import { generateStructured } from '../../core/ai/gemini-client.js';
+import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js';
 import {
   ShortAnswerQuestionSchema,
   type ShortAnswerQuestion,
@@ -10,8 +9,13 @@ import {
  * Input schema for short-answer parser
  */
 const ShortAnswerParserInputSchema = z.object({
-  /** PDF page buffers containing the question */
-  pages: z.array(z.instanceof(Buffer)),
+  /** PDF file as Buffer */
+  pdf: z.instanceof(Buffer),
+
+  /** Page range containing this question - [start] or [start, end] */
+  pages: z.tuple([z.number().int().positive()]).or(
+    z.tuple([z.number().int().positive(), z.number().int().positive()])
+  ),
 
   /** Description from page analyzer */
   description: z.string(),
@@ -26,31 +30,39 @@ const ShortAnswerParserInputSchema = z.object({
   instruction: z.string().optional(),
 });
 
-type ShortAnswerParserInput = z.infer<typeof ShortAnswerParserInputSchema>;
+export type ShortAnswerParserInput = z.infer<typeof ShortAnswerParserInputSchema>;
+
+/** Output with metrics for aggregation */
+export interface ShortAnswerParserResult {
+  question: ShortAnswerQuestion;
+  metrics: CallMetrics;
+}
 
 /**
  * Parse short-answer questions
  *
- * This task parses short-answer or essay questions from PDF pages.
+ * This function parses short-answer or essay questions from PDF pages.
  * Short-answer questions don't have options or predefined answers.
  * It extracts:
  * - Question text, latex, audio URLs, image URL
  * - Empty answer array (since there's no single correct answer)
  * - Optional explanations or guidance
  */
-export const shortAnswerParserTask = task({
-  id: 'parser-short-answer',
-  run: async (payload: ShortAnswerParserInput): Promise<ShortAnswerQuestion> => {
-    try {
-      console.log(`[parser-short-answer] Parsing question at position ${payload.position} (crossId: ${payload.crossId})...`);
+export async function parseShortAnswer(payload: ShortAnswerParserInput): Promise<ShortAnswerParserResult> {
+  const startPage = payload.pages[0];
+  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
+  const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`;
 
-      // Create prompt for parsing
-      const prompt = `Parse this short-answer or essay question from the PDF pages.
+  try {
+    console.log(`[parser-short-answer] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`);
+
+    // Create prompt for parsing
+    const prompt = `Parse the short-answer or essay question found on ${pageRange} of this PDF.
 
 Description: ${payload.description}
 ${payload.instruction ? `\nAdditional instructions: ${payload.instruction}` : ''}
 
-Extract the following information:
+Focus only on ${pageRange} and extract the following information:
 
 1. Question attributes:
    - position: ${payload.position}
@@ -70,24 +82,29 @@ Note: Short-answer questions do NOT have options and do NOT have a specific answ
 
 Return the complete question in the import API format.`;
 
-      // Use Gemini to parse the question
-      const question = await generateStructured({
-        prompt,
-        images: payload.pages,
-        schema: ShortAnswerQuestionSchema,
-        cacheKey: `short-answer-${payload.crossId}-${payload.position}`,
-      });
+    // Use Gemini to parse the question from PDF
+    const { object: question, metrics } = await generateStructured({
+      prompt,
+      pdf: payload.pdf,
+      schema: ShortAnswerQuestionSchema,
+      cacheKey: `short-answer-${payload.crossId}-${payload.position}`,
+    });
 
-      console.log(
-        `[parser-short-answer] Successfully parsed question ${payload.position}`
-      );
+    // Log metrics
+    const metricsStr = metrics.cacheHit
+      ? 'CACHE HIT'
+      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
+    console.log(`[parser-short-answer] Q${payload.position}: ${metricsStr}`);
 
-      return question;
-    } catch (error) {
-      console.error('[parser-short-answer] Error parsing question:', error);
-      throw new Error(
-        `Failed to parse short-answer question: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
-  },
-});
+    console.log(
+      `[parser-short-answer] Successfully parsed question ${payload.position}`
+    );
+
+    return { question, metrics };
+  } catch (error) {
+    console.error('[parser-short-answer] Error parsing question:', error);
+    throw new Error(
+      `Failed to parse short-answer question: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}

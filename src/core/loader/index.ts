@@ -13,3 +13,13 @@ export {
   getImageMetadata,
   ImageLoaderError,
 } from './image-loader.js';
+
+// Test loader exports
+export {
+  parsePdfFilename,
+  discoverTestCases,
+  loadTestCase,
+  formatTestCase,
+  TestLoaderError,
+  type TestCase,
+} from './test-loader.js';

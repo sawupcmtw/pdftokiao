@@ -1,6 +1,5 @@
-import { task } from '@trigger.dev/sdk/v3';
 import { z } from 'zod';
-import { generateStructured } from '../../core/ai/gemini-client.js';
+import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js';
 import {
   FillInQuestionSchema,
   type FillInQuestion,
@@ -10,8 +9,13 @@ import {
  * Input schema for fill-in parser
  */
 const FillInParserInputSchema = z.object({
-  /** PDF page buffers containing the question */
-  pages: z.array(z.instanceof(Buffer)),
+  /** PDF file as Buffer */
+  pdf: z.instanceof(Buffer),
+
+  /** Page range containing this question - [start] or [start, end] */
+  pages: z.tuple([z.number().int().positive()]).or(
+    z.tuple([z.number().int().positive(), z.number().int().positive()])
+  ),
 
   /** Description from page analyzer */
   description: z.string(),
@@ -26,12 +30,18 @@ const FillInParserInputSchema = z.object({
   instruction: z.string().optional(),
 });
 
-type FillInParserInput = z.infer<typeof FillInParserInputSchema>;
+export type FillInParserInput = z.infer<typeof FillInParserInputSchema>;
+
+/** Output with metrics for aggregation */
+export interface FillInParserResult {
+  question: FillInQuestion;
+  metrics: CallMetrics;
+}
 
 /**
  * Parse fill-in questions
  *
- * This task parses fill-in-the-blank questions from PDF pages.
+ * This function parses fill-in-the-blank questions from PDF pages.
  * Fill-in questions don't have options - the answer is directly provided.
  * It extracts:
  * - Question text, latex, audio URLs, image URL
@@ -39,19 +49,21 @@ type FillInParserInput = z.infer<typeof FillInParserInputSchema>;
  * - Optional blank_identifier for numbered blanks
  * - Optional explanations
  */
-export const fillInParserTask = task({
-  id: 'parser-fill-in',
-  run: async (payload: FillInParserInput): Promise<FillInQuestion> => {
-    try {
-      console.log(`[parser-fill-in] Parsing question at position ${payload.position} (crossId: ${payload.crossId})...`);
+export async function parseFillIn(payload: FillInParserInput): Promise<FillInParserResult> {
+  const startPage = payload.pages[0];
+  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
+  const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`;
 
-      // Create prompt for parsing
-      const prompt = `Parse this fill-in-the-blank question from the PDF pages.
+  try {
+    console.log(`[parser-fill-in] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`);
+
+    // Create prompt for parsing
+    const prompt = `Parse the fill-in-the-blank question found on ${pageRange} of this PDF.
 
 Description: ${payload.description}
 ${payload.instruction ? `\nAdditional instructions: ${payload.instruction}` : ''}
 
-Extract the following information:
+Focus only on ${pageRange} and extract the following information:
 
 1. Question attributes:
    - position: ${payload.position}
@@ -74,25 +86,30 @@ Note: Fill-in questions do NOT have options.
 
 Return the complete question in the import API format.`;
 
-      // Use Gemini to parse the question
-      const question = await generateStructured({
-        prompt,
-        images: payload.pages,
-        schema: FillInQuestionSchema,
-        cacheKey: `fill-in-${payload.crossId}-${payload.position}`,
-      });
+    // Use Gemini to parse the question from PDF
+    const { object: question, metrics } = await generateStructured({
+      prompt,
+      pdf: payload.pdf,
+      schema: FillInQuestionSchema,
+      cacheKey: `fill-in-${payload.crossId}-${payload.position}`,
+    });
 
-      console.log(
-        `[parser-fill-in] Successfully parsed question ${payload.position} ` +
-        `with ${question.attributes.answer.length} blank(s)`
-      );
+    // Log metrics
+    const metricsStr = metrics.cacheHit
+      ? 'CACHE HIT'
+      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
+    console.log(`[parser-fill-in] Q${payload.position}: ${metricsStr}`);
 
-      return question;
-    } catch (error) {
-      console.error('[parser-fill-in] Error parsing question:', error);
-      throw new Error(
-        `Failed to parse fill-in question: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
-  },
-});
+    console.log(
+      `[parser-fill-in] Successfully parsed question ${payload.position} ` +
+      `with ${question.attributes.answer.length} blank(s)`
+    );
+
+    return { question, metrics };
+  } catch (error) {
+    console.error('[parser-fill-in] Error parsing question:', error);
+    throw new Error(
+      `Failed to parse fill-in question: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}

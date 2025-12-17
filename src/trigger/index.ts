@@ -1,16 +1,16 @@
-// Export all Trigger.dev tasks
+// Export all pipeline functions
 
-// Agent tasks
-export { hintTaggerTask } from './hint-tagger.task.js';
-export { pageAnalyzerTask } from './page-analyzer.task.js';
+// Agent functions
+export { tagHints, type HintTaggerInput, type HintTaggerOutput } from './hint-tagger.task.js';
+export { analyzePages, type PageAnalyzerInput, type PageAnalyzerOutput } from './page-analyzer.task.js';
 
-// Parser tasks
+// Parser functions
 export {
-  singleSelectParserTask,
-  multiSelectParserTask,
-  fillInParserTask,
-  shortAnswerParserTask,
+  parseSingleSelect,
+  parseMultiSelect,
+  parseFillIn,
+  parseShortAnswer,
 } from './parsers/index.js';
 
-// Orchestrator task
-export { orchestratorTask } from './orchestrator.task.js';
+// Orchestrator function
+export { orchestrate, type OrchestratorInput } from './orchestrator.task.js';
