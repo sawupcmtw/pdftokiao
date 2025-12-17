@@ -68,3 +68,23 @@ export {
   type ExtractedAnswer,
   type SupplementaryExtractionResult,
 } from './supplementary.schema.js'
+
+// Deck schemas
+export {
+  WordTypeSchema,
+  CardExplanationSchema,
+  CardTextContentSchema,
+  CardAttributesSchema,
+  CardSchema,
+  DeckAttributesSchema,
+  DeckSchema,
+  DeckDataSchema,
+  type WordType,
+  type CardExplanation,
+  type CardTextContent,
+  type CardAttributes,
+  type Card,
+  type DeckAttributes,
+  type Deck,
+  type DeckData,
+} from './deck.schema.js'

@@ -21,7 +21,7 @@ export const SupplementaryScopeSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('type'),
-    questionType: z.enum(['single_select', 'multi_select', 'fill_in', 'short_answer']),
+    questionType: z.enum(['single_select', 'multi_select', 'fill_in', 'short_answer', 'emi_single_select']),
   }),
   z.object({
     type: z.literal('questions'),

@@ -8,7 +8,14 @@ export const HintTagSchema = z.object({
   imageIndex: z.number().int().nonnegative(),
 
   /** Type of question detected in the hint */
-  type: z.enum(['single_select', 'multi_select', 'fill_in', 'short_answer']),
+  type: z.enum([
+    'single_select',
+    'multi_select',
+    'fill_in',
+    'short_answer',
+    'emi_single_select',
+    'deck',
+  ]),
 
   /** Description of the hint content */
   description: z.string(),
