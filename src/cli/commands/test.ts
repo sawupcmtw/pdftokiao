@@ -1,7 +1,6 @@
 import { Command } from 'commander'
 import { writeFile, mkdir, readdir } from 'fs/promises'
 import { join, resolve, dirname } from 'path'
-import { randomUUID } from 'crypto'
 import {
   discoverTestCases,
   loadTestCase,
@@ -12,7 +11,8 @@ import {
 } from '../../core/loader/test-loader.js'
 import { loadPdf, loadImages, PdfLoaderError, ImageLoaderError } from '../../core/loader/index.js'
 import { ParseInputSchema } from '../../core/schemas/index.js'
-import { orchestrate, orchestrateDeck } from '../../trigger/index.js'
+import { orchestrate } from '../../trigger/index.js'
+import type { OrchestratorResult } from '../../core/schemas/index.js'
 
 // Default test files directory
 const DEFAULT_TEST_DIR = './test_files'
@@ -29,8 +29,6 @@ export function createTestCommand(): Command {
     .option('-l, --list', 'List all discovered test cases')
     .option('-r, --run', 'Run the parser on the test case')
     .option('-d, --dir <path>', 'Test files directory', DEFAULT_TEST_DIR)
-    .option('--material-id <id>', 'Override material ID (default: auto-generated)')
-    .option('--import-key <key>', 'Override import key (default: auto-generated UUID)')
     .action(async (name: string | undefined, options) => {
       try {
         const testDir = resolve(options.dir)
@@ -89,7 +87,7 @@ export function createTestCommand(): Command {
 
         // Run mode
         if (options.run) {
-          await runTestCase(testCase, options)
+          await runTestCase(testCase)
         } else {
           console.log('\nUse --run to execute the parser on this test case.')
         }
@@ -155,24 +153,102 @@ async function getNextRunNumber(testCasePath: string): Promise<number> {
 }
 
 /**
+ * Format duration in human-readable form
+ */
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  const seconds = ms / 1000
+  if (seconds < 60) return `${seconds.toFixed(2)}s`
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  return `${minutes}m ${remainingSeconds.toFixed(1)}s`
+}
+
+/**
+ * Format pipeline logs as human-readable text
+ */
+function formatLogs(
+  result: OrchestratorResult,
+  testCase: TestCase,
+  runNumber: number,
+  questionCount: number,
+  deckCardCount: number
+): string {
+  const lines: string[] = []
+  const { metrics, callLogs, startTime, endTime } = result
+  const totalMs = endTime.getTime() - startTime.getTime()
+
+  // Header
+  lines.push('='.repeat(60))
+  lines.push('PDF TO KIAO - Pipeline Execution Log')
+  lines.push('='.repeat(60))
+  lines.push('')
+
+  // Run info
+  lines.push('--- Run Information ---')
+  lines.push(`Test Case: ${testCase.name}`)
+  lines.push(`Run Number: ${runNumber}`)
+  lines.push(`Started: ${startTime.toISOString()}`)
+  lines.push(`Completed: ${endTime.toISOString()}`)
+  lines.push('')
+
+  // Input summary
+  lines.push('--- Input Summary ---')
+  lines.push(`PDF: ${testCase.pdfPath}`)
+  const pageStr =
+    testCase.pages.length === 1 ? `${testCase.pages[0]}` : `${testCase.pages[0]}-${testCase.pages[1]}`
+  lines.push(`Pages: ${pageStr}`)
+  lines.push(`Hint Images: ${testCase.hintPaths.length}`)
+  lines.push(`Supplementary PDFs: ${testCase.supplementaryPdfs.length}`)
+  lines.push('')
+
+  // Output summary
+  lines.push('--- Output Summary ---')
+  lines.push(`Questions Parsed: ${questionCount}`)
+  lines.push(`Deck Cards Parsed: ${deckCardCount}`)
+  lines.push('')
+
+  // AI Calls table
+  lines.push(`--- AI Calls (${metrics.apiCalls} total, ${metrics.cacheHits} cache hits) ---`)
+  lines.push(' #  Goal                                          Tokens In/Out      Time     Cache')
+  callLogs.forEach((log, i) => {
+    const num = String(i + 1).padStart(2, ' ')
+    const goal = log.goal.padEnd(44, ' ').slice(0, 44)
+    const tokens = `${log.inputTokens.toLocaleString()} / ${log.outputTokens.toLocaleString()}`.padStart(16, ' ')
+    const time = `${log.latencyMs}ms`.padStart(9, ' ')
+    const cache = log.cacheHit ? '  HIT' : ''
+    lines.push(`${num}  ${goal}  ${tokens}  ${time}${cache}`)
+  })
+  lines.push('')
+
+  // Totals
+  lines.push('--- Totals ---')
+  lines.push(`Input Tokens:  ${metrics.totalInputTokens.toLocaleString()}`)
+  lines.push(`Output Tokens: ${metrics.totalOutputTokens.toLocaleString()}`)
+  lines.push(
+    `Total Tokens:  ${(metrics.totalInputTokens + metrics.totalOutputTokens).toLocaleString()}`
+  )
+  lines.push(`Total Retries: ${metrics.totalRetries}`)
+  lines.push('')
+
+  // Timing
+  lines.push('--- Timing ---')
+  lines.push(`Total Time: ${formatDuration(totalMs)}`)
+  lines.push(`AI Latency: ${formatDuration(metrics.totalLatencyMs)}`)
+  lines.push(`Overhead:   ${formatDuration(totalMs - metrics.totalLatencyMs)}`)
+  lines.push('')
+
+  // Footer
+  lines.push('='.repeat(60))
+
+  return lines.join('\n')
+}
+
+/**
  * Run the parser on a test case
  */
-async function runTestCase(
-  testCase: TestCase,
-  options: { materialId?: string; importKey?: string }
-): Promise<void> {
+async function runTestCase(testCase: TestCase): Promise<void> {
   console.log('\n=== Running Parser ===\n')
-
-  // Generate or use provided IDs
-  const materialId = options.materialId ? parseInt(options.materialId, 10) : Date.now() % 100000
-  const importKey = options.importKey || randomUUID()
-
-  if (options.materialId && (isNaN(materialId) || materialId < 1)) {
-    throw new Error('Material ID must be a positive integer')
-  }
-
-  console.log(`Material ID: ${materialId}`)
-  console.log(`Import Key: ${importKey}`)
 
   // Load PDF
   console.log(`\nLoading PDF: ${testCase.pdfPath}`)
@@ -209,54 +285,30 @@ async function runTestCase(
     pages: testCase.pages,
     hints: hintBuffers,
     instruction: testCase.instruction,
-    materialId,
-    importKey,
   })
   console.log('  Input validated successfully')
 
-  // Run both orchestrators
-  console.log('\n=== Running Pipelines ===\n')
+  // Run orchestrator pipeline (handles both questions and deck)
+  console.log('\n=== Running Pipeline ===\n')
 
-  // Run question orchestrator
-  let questionGroupOutput = null
+  let result: OrchestratorResult
   try {
-    console.log('[test] Running question group pipeline...')
-    questionGroupOutput = await orchestrate({
+    result = await orchestrate({
       pdfPath: testCase.pdfPath,
       pages: testCase.pages,
       hintPaths: testCase.hintPaths,
       instruction: testCase.instruction,
-      materialId,
-      importKey,
       supplementaryPdfs: testCase.supplementaryPdfs,
     })
-    console.log('[test] Question group pipeline completed')
+    console.log('[test] Pipeline completed')
   } catch (e) {
-    console.log(
-      `[test] Question parsing failed: ${e instanceof Error ? e.message : 'Unknown error'}`
-    )
+    throw new Error(`Pipeline failed: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
 
-  // Run deck orchestrator
-  let deckOutput = null
-  try {
-    console.log('[test] Running deck pipeline...')
-    deckOutput = await orchestrateDeck({
-      pdfPath: testCase.pdfPath,
-      pages: testCase.pages,
-      deckName: testCase.name,
-      importKey,
-      instruction: testCase.instruction,
-    })
-    console.log('[test] Deck pipeline completed')
-  } catch (e) {
-    console.log(`[test] Deck parsing failed: ${e instanceof Error ? e.message : 'Unknown error'}`)
-  }
-
-  // Check if we have any output
-  if (!questionGroupOutput && !deckOutput) {
-    throw new Error('Both question and deck parsing failed - no output generated')
-  }
+  // Extract question groups and decks from output
+  const { output } = result
+  const questionGroups = output.filter((item) => item.data.type === 'question_group')
+  const decks = output.filter((item) => item.data.type === 'deck')
 
   // Create output directory
   const testCasePath = dirname(testCase.pdfPath)
@@ -268,17 +320,33 @@ async function runTestCase(
   // Write outputs
   const writtenFiles: string[] = []
 
-  if (questionGroupOutput) {
+  if (questionGroups.length > 0) {
     const questionGroupPath = join(outputDir, 'question-group.json')
-    await writeFile(questionGroupPath, JSON.stringify(questionGroupOutput, null, 2), 'utf-8')
+    await writeFile(questionGroupPath, JSON.stringify(questionGroups, null, 2), 'utf-8')
     writtenFiles.push(questionGroupPath)
   }
 
-  if (deckOutput) {
+  if (decks.length > 0) {
     const deckPath = join(outputDir, 'deck.json')
-    await writeFile(deckPath, JSON.stringify(deckOutput, null, 2), 'utf-8')
+    await writeFile(deckPath, JSON.stringify(decks, null, 2), 'utf-8')
     writtenFiles.push(deckPath)
   }
+
+  // Calculate counts for logs
+  const questionCount = questionGroups.reduce((sum, qg) => {
+    const data = qg.data as { questions?: unknown[] }
+    return sum + (data.questions?.length || 0)
+  }, 0)
+  const deckCardCount = decks.reduce((sum, d) => {
+    const data = d.data as { cards?: unknown[] }
+    return sum + (data.cards?.length || 0)
+  }, 0)
+
+  // Write logs.txt
+  const logsContent = formatLogs(result, testCase, runNumber, questionCount, deckCardCount)
+  const logsPath = join(outputDir, 'logs.txt')
+  await writeFile(logsPath, logsContent, 'utf-8')
+  writtenFiles.push(logsPath)
 
   console.log('\n=== Success ===')
   console.log(`Run #${runNumber} - Output written to:`)

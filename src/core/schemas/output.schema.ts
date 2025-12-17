@@ -5,17 +5,13 @@ import {
   OptionSchema,
   QuestionSchema,
 } from './question.schema.js'
+import { DeckSchema } from './deck.schema.js'
 
 /**
  * Schema for QuestionGroup attributes
+ * Note: material_id and import_key are added by CLI, not part of AI-generated output
  */
 export const QuestionGroupAttributesSchema = z.object({
-  /** Material ID */
-  material_id: z.number().int().positive(),
-
-  /** Import key (UUID format recommended) */
-  import_key: z.string().min(1),
-
   /** Optional text content for the question group (e.g., reading passage for EMI) */
   text: z.string().optional(),
 
@@ -57,3 +53,56 @@ export const QuestionGroupSchema = z.object({
 export type QuestionGroupAttributes = z.infer<typeof QuestionGroupAttributesSchema>
 export type QuestionGroupData = z.infer<typeof QuestionGroupDataSchema>
 export type QuestionGroup = z.infer<typeof QuestionGroupSchema>
+
+/**
+ * Schema for Deck output wrapper (matches QuestionGroup structure pattern)
+ */
+export const DeckOutputSchema = z.object({
+  data: DeckSchema,
+})
+
+export type DeckOutput = z.infer<typeof DeckOutputSchema>
+
+/**
+ * Schema for combined orchestrator output
+ * Array containing either QuestionGroup or DeckOutput items
+ */
+export const OrchestratorOutputSchema = z.array(
+  z.union([QuestionGroupSchema, DeckOutputSchema])
+)
+
+export type OrchestratorOutput = z.infer<typeof OrchestratorOutputSchema>
+
+// ============================================
+// Pipeline Metrics & Logging Types
+// ============================================
+
+/** Individual AI call log entry */
+export interface AICallLog {
+  /** Goal/purpose of this AI call (e.g., "Tag hint image 1", "Parse question 3 (fill_in)") */
+  goal: string
+  inputTokens: number
+  outputTokens: number
+  latencyMs: number
+  cacheHit: boolean
+  retries: number
+}
+
+/** Aggregated pipeline metrics */
+export interface PipelineMetrics {
+  totalInputTokens: number
+  totalOutputTokens: number
+  totalLatencyMs: number
+  cacheHits: number
+  apiCalls: number
+  totalRetries: number
+}
+
+/** Extended orchestrator result including metrics and call logs */
+export interface OrchestratorResult {
+  output: OrchestratorOutput
+  metrics: PipelineMetrics
+  callLogs: AICallLog[]
+  startTime: Date
+  endTime: Date
+}

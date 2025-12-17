@@ -50,9 +50,16 @@ export {
   QuestionGroupAttributesSchema,
   QuestionGroupDataSchema,
   QuestionGroupSchema,
+  DeckOutputSchema,
+  OrchestratorOutputSchema,
   type QuestionGroupAttributes,
   type QuestionGroupData,
   type QuestionGroup,
+  type DeckOutput,
+  type OrchestratorOutput,
+  type AICallLog,
+  type PipelineMetrics,
+  type OrchestratorResult,
 } from './output.schema.js'
 
 // Supplementary PDF schemas

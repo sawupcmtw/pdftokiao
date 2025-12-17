@@ -6,6 +6,11 @@ import type {
   SupplementaryPdf,
   Option,
   Explanation,
+  Deck,
+  OrchestratorOutput,
+  OrchestratorResult,
+  PipelineMetrics,
+  AICallLog,
 } from '../core/schemas/index.js'
 import type { CallMetrics } from '../core/ai/gemini-client.js'
 import { tagHints } from './hint-tagger.task.js'
@@ -16,27 +21,17 @@ import {
   parseFillIn,
   parseShortAnswer,
   parseEMISingleSelect,
+  parseDeck,
   type EMISingleSelectParserResult,
+  type DeckParserResult,
 } from './parsers/index.js'
 import { enrichAnswers } from './answer-enricher.task.js'
-
-/** Aggregated metrics for the entire pipeline */
-interface PipelineMetrics {
-  totalInputTokens: number
-  totalOutputTokens: number
-  totalCost: number
-  totalLatencyMs: number
-  cacheHits: number
-  apiCalls: number
-  totalRetries: number
-}
 
 /** Create empty metrics accumulator */
 function createMetricsAccumulator(): PipelineMetrics {
   return {
     totalInputTokens: 0,
     totalOutputTokens: 0,
-    totalCost: 0,
     totalLatencyMs: 0,
     cacheHits: 0,
     apiCalls: 0,
@@ -44,15 +39,29 @@ function createMetricsAccumulator(): PipelineMetrics {
   }
 }
 
-/** Add metrics from a single call to the accumulator */
-function addMetrics(acc: PipelineMetrics, metrics: CallMetrics): void {
+/** Add metrics from a single call to the accumulator and log entry */
+function addMetrics(
+  acc: PipelineMetrics,
+  callLogs: AICallLog[],
+  metrics: CallMetrics,
+  goal: string
+): void {
   acc.totalInputTokens += metrics.usage.inputTokens
   acc.totalOutputTokens += metrics.usage.outputTokens
-  acc.totalCost += metrics.usage.cost
   acc.totalLatencyMs += metrics.latencyMs
   acc.apiCalls++
   acc.totalRetries += metrics.retryAttempts
   if (metrics.cacheHit) acc.cacheHits++
+
+  // Add to call logs
+  callLogs.push({
+    goal,
+    inputTokens: metrics.usage.inputTokens,
+    outputTokens: metrics.usage.outputTokens,
+    latencyMs: metrics.latencyMs,
+    cacheHit: metrics.cacheHit,
+    retries: metrics.retryAttempts,
+  })
 }
 
 /** Log the final pipeline metrics summary */
@@ -62,7 +71,6 @@ function logMetricsSummary(metrics: PipelineMetrics): void {
   console.log(
     `[orchestrator] Tokens: ${metrics.totalInputTokens} in / ${metrics.totalOutputTokens} out`
   )
-  console.log(`[orchestrator] Cost: $${metrics.totalCost.toFixed(6)}`)
   console.log(`[orchestrator] Latency: ${metrics.totalLatencyMs}ms total`)
   console.log(`[orchestrator] Retries: ${metrics.totalRetries}`)
   console.log('[orchestrator] ==============================')
@@ -86,12 +94,6 @@ const OrchestratorInputSchema = z.object({
   /** Optional instruction string for parsing guidance */
   instruction: z.string().optional(),
 
-  /** Material ID number */
-  materialId: z.number().int().positive(),
-
-  /** Import key string (UUID format recommended) */
-  importKey: z.string().min(1),
-
   /** Optional array of supplementary PDFs for answer enrichment */
   supplementaryPdfs: z
     .array(
@@ -113,13 +115,14 @@ export type OrchestratorInput = z.infer<typeof OrchestratorInputSchema>
  * 1. Load PDF and hint images using loaders
  * 2. Run hint tagger to analyze hints
  * 3. Run page analyzer to map pages to questions
- * 4. Run appropriate parsers in parallel for each question
+ * 4. Run appropriate parsers in parallel for each question type (including deck)
  * 5. Group results by type + crossId
- * 6. Merge outputs into final QuestionGroup JSON
+ * 6. Merge outputs into final array containing QuestionGroup and/or Deck
  */
-export async function orchestrate(payload: OrchestratorInput): Promise<QuestionGroup> {
+export async function orchestrate(payload: OrchestratorInput): Promise<OrchestratorResult> {
   const startPage = payload.pages[0]
   const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0]
+  const startTime = new Date()
 
   try {
     console.log('[orchestrator] Starting PDF parsing pipeline...')
@@ -127,8 +130,9 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
     console.log(`[orchestrator] Pages: ${startPage}-${endPage}`)
     console.log(`[orchestrator] Hints: ${payload.hintPaths.length} files`)
 
-    // Initialize metrics accumulator
+    // Initialize metrics accumulator and call logs
     const pipelineMetrics = createMetricsAccumulator()
+    const callLogs: AICallLog[] = []
 
     // Step 1: Load files
     console.log('[orchestrator] Step 1: Loading files...')
@@ -147,8 +151,8 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
         : { output: { tags: [] }, metrics: [] }
     const hintTags = hintTagResult.output.tags
     // Collect metrics from hint tagger
-    for (const m of hintTagResult.metrics) {
-      addMetrics(pipelineMetrics, m)
+    for (let i = 0; i < hintTagResult.metrics.length; i++) {
+      addMetrics(pipelineMetrics, callLogs, hintTagResult.metrics[i]!, `Tag hint image ${i + 1}`)
     }
     console.log(`[orchestrator] Tagged ${hintTags.length} hints`)
 
@@ -161,10 +165,10 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
     })
     const pageMaps = pageAnalyzerResult.output.pageMaps
     // Collect metrics from page analyzer
-    addMetrics(pipelineMetrics, pageAnalyzerResult.metrics)
+    addMetrics(pipelineMetrics, callLogs, pageAnalyzerResult.metrics, `Analyze pages ${startPage}-${endPage}`)
     console.log(`[orchestrator] Analyzed ${pageMaps.length} pages`)
 
-    // Step 4: Group questions by crossId and type
+    // Step 4: Group questions by crossId and type, separate deck pages
     console.log('[orchestrator] Step 4: Grouping questions...')
 
     const questionMap = new Map<
@@ -176,8 +180,19 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
       }
     >()
 
+    // Track deck pages separately
+    const deckPages: number[] = []
+
     for (const pageMap of pageMaps) {
       for (const item of pageMap.included) {
+        // Handle deck content separately
+        if (item.type === 'deck') {
+          if (!deckPages.includes(pageMap.page)) {
+            deckPages.push(pageMap.page)
+          }
+          continue
+        }
+
         const crossId = item.crossId || `page-${pageMap.page}-${item.type}`
 
         if (!questionMap.has(crossId)) {
@@ -193,14 +208,25 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
     }
 
     console.log(`[orchestrator] Found ${questionMap.size} questions`)
+    if (deckPages.length > 0) {
+      console.log(
+        `[orchestrator] Found deck content on pages: ${deckPages.sort((a, b) => a - b).join(', ')}`
+      )
+    }
 
-    // Step 5: Parse each question in parallel
-    console.log('[orchestrator] Step 5: Parsing questions...')
+    // Step 5: Parse each question AND deck in parallel
+    console.log('[orchestrator] Step 5: Parsing questions and deck...')
 
-    const parsePromises: Promise<{ question: Question; metrics: CallMetrics }>[] = []
+    const parsePromises: Promise<{
+      question: Question
+      metrics: CallMetrics
+      position: number
+      type: string
+    }>[] = []
     const emiParsePromises: Promise<{
       result: EMISingleSelectParserResult
       crossId: string
+      pages: [number] | [number, number]
     }>[] = []
     let position = 1
 
@@ -229,20 +255,45 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
       }
 
       // Call the appropriate parser based on type
-      let parsePromise: Promise<{ question: Question; metrics: CallMetrics }>
+      const currentPosition = position
+      const currentType = questionInfo.type
 
       switch (questionInfo.type) {
         case 'single_select':
-          parsePromise = parseSingleSelect(parserInput)
+          parsePromises.push(
+            parseSingleSelect(parserInput).then((r) => ({
+              ...r,
+              position: currentPosition,
+              type: currentType,
+            }))
+          )
           break
         case 'multi_select':
-          parsePromise = parseMultiSelect(parserInput)
+          parsePromises.push(
+            parseMultiSelect(parserInput).then((r) => ({
+              ...r,
+              position: currentPosition,
+              type: currentType,
+            }))
+          )
           break
         case 'fill_in':
-          parsePromise = parseFillIn(parserInput)
+          parsePromises.push(
+            parseFillIn(parserInput).then((r) => ({
+              ...r,
+              position: currentPosition,
+              type: currentType,
+            }))
+          )
           break
         case 'short_answer':
-          parsePromise = parseShortAnswer(parserInput)
+          parsePromises.push(
+            parseShortAnswer(parserInput).then((r) => ({
+              ...r,
+              position: currentPosition,
+              type: currentType,
+            }))
+          )
           break
         case 'emi_single_select':
           // EMI needs special handling - parse as a group
@@ -254,7 +305,7 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
               crossId,
               startPosition: position,
               instruction: payload.instruction,
-            }).then((result) => ({ result, crossId }))
+            }).then((result) => ({ result, crossId, pages: pageRange }))
           )
           // Skip incrementing position here - EMI parser handles positions
           continue
@@ -263,30 +314,61 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
           continue
       }
 
-      parsePromises.push(parsePromise)
       position++
     }
 
-    // Wait for all regular parsers to complete
-    const parseResults = await Promise.all(parsePromises)
+    // Create deck parse promise if deck pages found
+    let deckParsePromise: Promise<DeckParserResult> | null = null
+    let deckPageRange: [number] | [number, number] | null = null
+    if (deckPages.length > 0) {
+      const sortedDeckPages = deckPages.sort((a, b) => a - b)
+      const deckStartPage = sortedDeckPages[0]!
+      const deckEndPage = sortedDeckPages[sortedDeckPages.length - 1]!
+      deckPageRange = deckStartPage === deckEndPage ? [deckStartPage] : [deckStartPage, deckEndPage]
+
+      deckParsePromise = parseDeck({
+        pdf: pdfBuffer,
+        pages: deckPageRange,
+        description: `Vocabulary content from pages ${deckStartPage}-${deckEndPage}`,
+        crossId: `deck-${deckStartPage}-${deckEndPage}`,
+        instruction: payload.instruction,
+      })
+    }
+
+    // Wait for all parsers to complete in parallel
+    const [parseResults, emiResults, deckResult] = await Promise.all([
+      Promise.all(parsePromises),
+      Promise.all(emiParsePromises),
+      deckParsePromise,
+    ])
 
     // Extract questions and collect metrics
     const questions: Question[] = []
     for (const result of parseResults) {
       questions.push(result.question)
-      addMetrics(pipelineMetrics, result.metrics)
+      addMetrics(
+        pipelineMetrics,
+        callLogs,
+        result.metrics,
+        `Parse question ${result.position} (${result.type})`
+      )
     }
 
-    // Wait for EMI parsers and process their results
-    const emiResults = await Promise.all(emiParsePromises)
-    for (const { result, crossId } of emiResults) {
+    // Process EMI results
+    for (const { result, crossId, pages } of emiResults) {
       console.log(
         `[orchestrator] EMI group ${crossId}: ${result.questions.length} questions, ${result.groupOptions.length} shared options`
       )
 
       // Add EMI questions to the questions array
       questions.push(...result.questions)
-      addMetrics(pipelineMetrics, result.metrics)
+      const pageStr = pages.length === 2 ? `${pages[0]}-${pages[1]}` : `${pages[0]}`
+      addMetrics(
+        pipelineMetrics,
+        callLogs,
+        result.metrics,
+        `Parse EMI group (${result.questions.length} questions, pages ${pageStr})`
+      )
 
       // Store group-level EMI data (use first EMI group's data if multiple)
       if (result.groupOptions.length > 0 && emiGroupOptions.length === 0) {
@@ -296,63 +378,117 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
       }
     }
 
-    console.log(`[orchestrator] Parsed ${questions.length} questions`)
-
-    // Step 6: Build final QuestionGroup
-    console.log('[orchestrator] Step 6: Building final output...')
-
-    let questionGroup: QuestionGroup = {
-      data: {
-        type: 'question_group',
-        attributes: {
-          material_id: payload.materialId,
-          import_key: payload.importKey,
-          // Include EMI group-level text if present
-          ...(emiGroupText ? { text: emiGroupText } : {}),
-        },
-        // Include EMI group-level explanation if present
-        ...(emiGroupExplanation ? { explanation: emiGroupExplanation } : {}),
-        // Include EMI shared options if present
-        ...(emiGroupOptions.length > 0 ? { options: emiGroupOptions } : {}),
-        questions,
-      },
+    // Process deck result and collect metrics
+    if (deckResult && deckPageRange) {
+      console.log(`[orchestrator] Parsed ${deckResult.cards.length} vocabulary cards`)
+      const deckPageStr =
+        deckPageRange.length === 2 ? `${deckPageRange[0]}-${deckPageRange[1]}` : `${deckPageRange[0]}`
+      addMetrics(
+        pipelineMetrics,
+        callLogs,
+        deckResult.metrics,
+        `Parse deck (${deckResult.cards.length} cards, pages ${deckPageStr})`
+      )
     }
 
-    // Step 7: Enrich with supplementary PDFs (if provided)
-    if (payload.supplementaryPdfs && payload.supplementaryPdfs.length > 0) {
-      console.log('[orchestrator] Step 7: Enriching with supplementary PDFs...')
+    console.log(`[orchestrator] Parsed ${questions.length} questions`)
 
-      const enrichResult = await enrichAnswers({
-        questionGroup,
-        supplementaryPdfs: payload.supplementaryPdfs as SupplementaryPdf[],
-      })
+    // Step 6: Build final output array
+    console.log('[orchestrator] Step 6: Building final output...')
 
-      // Collect metrics
-      for (const m of enrichResult.metrics) {
-        addMetrics(pipelineMetrics, m)
+    const output: OrchestratorOutput = []
+
+    // Add QuestionGroup if questions exist
+    if (questions.length > 0) {
+      let questionGroup: QuestionGroup = {
+        data: {
+          type: 'question_group',
+          attributes: {
+            // Include EMI group-level text if present
+            ...(emiGroupText ? { text: emiGroupText } : {}),
+          },
+          // Include EMI group-level explanation if present
+          ...(emiGroupExplanation ? { explanation: emiGroupExplanation } : {}),
+          // Include EMI shared options if present
+          ...(emiGroupOptions.length > 0 ? { options: emiGroupOptions } : {}),
+          questions,
+        },
       }
 
-      // Log enrichment summary
-      console.log(`[orchestrator] Enriched ${enrichResult.enrichmentLog.length} questions`)
-      for (const entry of enrichResult.enrichmentLog) {
-        console.log(
-          `[orchestrator]   Q${entry.questionPosition}: ${entry.fieldsUpdated.join(', ')} ` +
-            `(${entry.confidence} confidence from ${entry.sourceFile})`
-        )
+      // Step 7: Enrich with supplementary PDFs (if provided)
+      if (payload.supplementaryPdfs && payload.supplementaryPdfs.length > 0) {
+        console.log('[orchestrator] Step 7: Enriching with supplementary PDFs...')
+
+        const enrichResult = await enrichAnswers({
+          questionGroup,
+          supplementaryPdfs: payload.supplementaryPdfs as SupplementaryPdf[],
+        })
+
+        // Collect metrics
+        const suppPdfs = payload.supplementaryPdfs as SupplementaryPdf[]
+        for (let i = 0; i < enrichResult.metrics.length; i++) {
+          const suppFilename = suppPdfs[i]?.filename || `SUPP-${i + 1}`
+          addMetrics(pipelineMetrics, callLogs, enrichResult.metrics[i]!, `Enrich from ${suppFilename}`)
+        }
+
+        // Log enrichment summary
+        console.log(`[orchestrator] Enriched ${enrichResult.enrichmentLog.length} questions`)
+        for (const entry of enrichResult.enrichmentLog) {
+          console.log(
+            `[orchestrator]   Q${entry.questionPosition}: ${entry.fieldsUpdated.join(', ')} ` +
+              `(${entry.confidence} confidence from ${entry.sourceFile})`
+          )
+        }
+
+        // Use enriched group as final output
+        questionGroup = enrichResult.enrichedGroup
+      } else {
+        console.log('[orchestrator] Step 7: No supplementary PDFs, skipping enrichment')
       }
 
-      // Use enriched group as final output
-      questionGroup = enrichResult.enrichedGroup
-    } else {
-      console.log('[orchestrator] Step 7: No supplementary PDFs, skipping enrichment')
+      output.push(questionGroup)
+    }
+
+    // Add Deck if deck content exists
+    if (deckResult && deckPageRange) {
+      const deckStartPage = deckPageRange[0]
+      const deckEndPage = deckPageRange.length === 2 ? deckPageRange[1] : deckPageRange[0]
+
+      const deck: Deck = {
+        type: 'deck',
+        attributes: {
+          name: `Vocabulary - Pages ${deckStartPage}-${deckEndPage}`,
+          description: `Vocabulary extracted from PDF pages ${deckStartPage} to ${deckEndPage}`,
+          position: 1,
+        },
+        cards: deckResult.cards,
+      }
+
+      output.push({ data: deck })
+    }
+
+    // Check if output is empty
+    if (output.length === 0) {
+      throw new Error('No questions or deck content detected in PDF')
     }
 
     console.log('[orchestrator] Pipeline completed successfully')
+    console.log(
+      `[orchestrator] Output contains ${output.length} item(s): ${output.map((item) => item.data.type).join(', ')}`
+    )
 
     // Log final metrics summary
     logMetricsSummary(pipelineMetrics)
 
-    return questionGroup
+    const endTime = new Date()
+
+    return {
+      output,
+      metrics: pipelineMetrics,
+      callLogs,
+      startTime,
+      endTime,
+    }
   } catch (error) {
     console.error('[orchestrator] Pipeline failed:', error)
     throw new Error(
