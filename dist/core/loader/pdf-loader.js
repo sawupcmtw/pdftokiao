@@ -1,6 +1,8 @@
 import { readFile } from 'fs/promises';
 import { access } from 'fs/promises';
 import { constants } from 'fs';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse');
 export class PdfLoaderError extends Error {
     cause;
