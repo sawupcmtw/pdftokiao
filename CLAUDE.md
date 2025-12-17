@@ -42,6 +42,7 @@ The PDF parsing pipeline (defined in `src/trigger/orchestrator.task.ts`) follows
 ### AI Integration
 
 All AI calls go through `src/core/ai/gemini-client.ts`:
+
 - Uses `generateStructured()` with Zod schemas for type-safe structured output
 - Model: `gemini-3-pro-preview` by default
 - Automatic retry with exponential backoff (3 attempts)
@@ -50,6 +51,7 @@ All AI calls go through `src/core/ai/gemini-client.ts`:
 ### Zod Schemas
 
 All data structures use Zod schemas (`src/core/schemas/`):
+
 - `QuestionGroup` - Final output format for Kiao import API
 - Question types: `SingleSelectQuestion`, `MultiSelectQuestion`, `FillInQuestion`, `ShortAnswerQuestion`
 - Each question has `attributes`, optional `explanation`, and `options` (for select types)
@@ -57,6 +59,7 @@ All data structures use Zod schemas (`src/core/schemas/`):
 ### Test Files Structure
 
 Test cases live in `test_files/` with this structure:
+
 ```
 test_files/<name>/
 ├── CONTENT-[1].pdf      # Required: PDF with page range in filename
@@ -73,17 +76,18 @@ SUPP files provide answer keys, explanations, and vocabulary notes to enrich par
 
 **Naming Convention:**
 
-| Format | Example | Description |
-|--------|---------|-------------|
-| `SUPP-all.pdf` | `SUPP-all.pdf` | Applies to all questions |
-| `SUPP-pages-X.pdf` | `SUPP-pages-5.pdf` | Single page scope |
-| `SUPP-pages-X-Y.pdf` | `SUPP-pages-1-5.pdf` | Page range scope |
-| `SUPP-type-TYPE.pdf` | `SUPP-type-fill_in.pdf` | Question type scope |
-| `SUPP-questions-X,Y,Z.pdf` | `SUPP-questions-1,5,10.pdf` | Specific questions |
+| Format                     | Example                     | Description              |
+| -------------------------- | --------------------------- | ------------------------ |
+| `SUPP-all.pdf`             | `SUPP-all.pdf`              | Applies to all questions |
+| `SUPP-pages-X.pdf`         | `SUPP-pages-5.pdf`          | Single page scope        |
+| `SUPP-pages-X-Y.pdf`       | `SUPP-pages-1-5.pdf`        | Page range scope         |
+| `SUPP-type-TYPE.pdf`       | `SUPP-type-fill_in.pdf`     | Question type scope      |
+| `SUPP-questions-X,Y,Z.pdf` | `SUPP-questions-1,5,10.pdf` | Specific questions       |
 
 **Supported Types:** `single_select`, `multi_select`, `fill_in`, `short_answer`
 
 **Enrichment Fields:**
+
 - `answer` - Correct answer(s)
 - `explanation.note` - Detailed explanation
 - `explanation.translation` - Translation (for language questions)
