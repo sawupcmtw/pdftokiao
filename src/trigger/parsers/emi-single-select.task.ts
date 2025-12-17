@@ -144,7 +144,7 @@ Return the complete EMI question group in the import API format.`
     // Log metrics
     const metricsStr = metrics.cacheHit
       ? 'CACHE HIT'
-      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`
+      : `${metrics.usage.totalTokens} tokens, ${metrics.latencyMs}ms`
     console.log(`[parser-emi-single-select] ${payload.crossId}: ${metricsStr}`)
 
     console.log(

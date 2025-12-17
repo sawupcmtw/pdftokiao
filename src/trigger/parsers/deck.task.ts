@@ -120,7 +120,7 @@ Return all vocabulary cards found on ${pageRange}.`
     // Log metrics
     const metricsStr = metrics.cacheHit
       ? 'CACHE HIT'
-      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`
+      : `${metrics.usage.totalTokens} tokens, ${metrics.latencyMs}ms`
     console.log(`[parser-deck] ${payload.crossId}: ${metricsStr}`)
 
     console.log(`[parser-deck] Successfully parsed ${result.cards.length} vocabulary cards`)

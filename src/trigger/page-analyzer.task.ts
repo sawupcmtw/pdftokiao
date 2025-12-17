@@ -145,7 +145,7 @@ Return a page map for each page showing what's included.`
     // Log metrics
     const metricsStr = metrics.cacheHit
       ? 'CACHE HIT'
-      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`
+      : `${metrics.usage.totalTokens} tokens, ${metrics.latencyMs}ms`
     console.log(`[page-analyzer] Pages ${startPage}-${endPage}: ${metricsStr}`)
 
     console.log(`[page-analyzer] Generated ${result.pageMaps.length} page maps`)

@@ -185,7 +185,7 @@ async function processSupplementaryPdf(
     return {
       extractions: [],
       metrics: {
-        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, cost: 0 },
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
         latencyMs: 0,
         cacheHit: true,
         retryAttempts: 0,

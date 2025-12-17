@@ -8,7 +8,6 @@ import { parseDeck } from './parsers/index.js'
 interface DeckPipelineMetrics {
   totalInputTokens: number
   totalOutputTokens: number
-  totalCost: number
   totalLatencyMs: number
   cacheHits: number
   apiCalls: number
@@ -20,7 +19,6 @@ function createMetricsAccumulator(): DeckPipelineMetrics {
   return {
     totalInputTokens: 0,
     totalOutputTokens: 0,
-    totalCost: 0,
     totalLatencyMs: 0,
     cacheHits: 0,
     apiCalls: 0,
@@ -32,7 +30,6 @@ function createMetricsAccumulator(): DeckPipelineMetrics {
 function addMetrics(acc: DeckPipelineMetrics, metrics: CallMetrics): void {
   acc.totalInputTokens += metrics.usage.inputTokens
   acc.totalOutputTokens += metrics.usage.outputTokens
-  acc.totalCost += metrics.usage.cost
   acc.totalLatencyMs += metrics.latencyMs
   acc.apiCalls++
   acc.totalRetries += metrics.retryAttempts
@@ -46,7 +43,6 @@ function logMetricsSummary(metrics: DeckPipelineMetrics): void {
   console.log(
     `[deck-orchestrator] Tokens: ${metrics.totalInputTokens} in / ${metrics.totalOutputTokens} out`
   )
-  console.log(`[deck-orchestrator] Cost: $${metrics.totalCost.toFixed(6)}`)
   console.log(`[deck-orchestrator] Latency: ${metrics.totalLatencyMs}ms total`)
   console.log(`[deck-orchestrator] Retries: ${metrics.totalRetries}`)
   console.log('[deck-orchestrator] ==============================')
@@ -69,9 +65,6 @@ const DeckOrchestratorInputSchema = z.object({
 
   /** Optional description for the deck */
   deckDescription: z.string().optional(),
-
-  /** Import key string (UUID format recommended) */
-  importKey: z.string().min(1),
 
   /** Optional instruction string for parsing guidance */
   instruction: z.string().optional(),
@@ -135,19 +128,7 @@ export async function orchestrateDeck(payload: DeckOrchestratorInput): Promise<D
       attributes: {
         name: payload.deckName,
         description: payload.deckDescription || '',
-        import_key: payload.importKey,
-        last_review_time: null,
-        removed_card_ids: [],
-        ref_deck_id: null,
-        is_referenced: true,
-        discarded_at: null,
-        starred_card_ids: [],
-        familiarity: null,
-        previewable: false,
-        study_due_on: null,
         position: 1,
-        mastered_cards_count: 0,
-        is_default: false,
       },
       cards,
     }
