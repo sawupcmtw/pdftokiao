@@ -88,6 +88,7 @@ export const CardSchema = z.object({
 
 /**
  * Schema for Deck attributes
+ * Note: import_key is added by CLI, not part of AI-generated output
  */
 export const DeckAttributesSchema = z.object({
   /** Name of the deck */
@@ -96,44 +97,8 @@ export const DeckAttributesSchema = z.object({
   /** Description of the deck */
   description: z.string(),
 
-  /** Import key (UUID format recommended) */
-  import_key: z.string().min(1),
-
-  /** Last review time (null for new decks) */
-  last_review_time: z.string().nullable().optional(),
-
-  /** IDs of removed cards */
-  removed_card_ids: z.array(z.number()).optional(),
-
-  /** Reference deck ID */
-  ref_deck_id: z.number().nullable().optional(),
-
-  /** Whether this deck is referenced */
-  is_referenced: z.boolean().optional(),
-
-  /** Discarded timestamp */
-  discarded_at: z.string().nullable().optional(),
-
-  /** IDs of starred cards */
-  starred_card_ids: z.array(z.number()).optional(),
-
-  /** Familiarity level */
-  familiarity: z.number().nullable().optional(),
-
-  /** Whether previewable */
-  previewable: z.boolean().optional(),
-
-  /** Study due date */
-  study_due_on: z.string().nullable().optional(),
-
   /** Position in the material */
   position: z.number().int().positive().optional(),
-
-  /** Count of mastered cards */
-  mastered_cards_count: z.number().int().nonnegative().optional(),
-
-  /** Whether this is the default deck */
-  is_default: z.boolean().optional(),
 })
 
 /**
