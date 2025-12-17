@@ -6,6 +6,7 @@ import {
   discoverTestCases,
   loadTestCase,
   formatTestCase,
+  formatSupplementaryScope,
   TestLoaderError,
   type TestCase,
 } from '../../core/loader/test-loader.js';
@@ -73,6 +74,12 @@ export function createTestCommand(): Command {
         console.log(`Hints: ${testCase.hintPaths.length} image(s)`);
         if (testCase.hintPaths.length > 0) {
           testCase.hintPaths.forEach((p, i) => console.log(`  ${i + 1}. ${p}`));
+        }
+        console.log(`Supplementary PDFs: ${testCase.supplementaryPdfs.length} file(s)`);
+        if (testCase.supplementaryPdfs.length > 0) {
+          testCase.supplementaryPdfs.forEach((supp, i) =>
+            console.log(`  ${i + 1}. ${supp.filename} (${formatSupplementaryScope(supp.scope)})`)
+          );
         }
         console.log(`Instruction: ${testCase.instruction ? 'Yes' : 'No'}`);
         if (testCase.instruction) {
@@ -202,6 +209,7 @@ async function runTestCase(
     instruction: testCase.instruction,
     materialId,
     importKey,
+    supplementaryPdfs: testCase.supplementaryPdfs,
   });
 
   // Create output directory

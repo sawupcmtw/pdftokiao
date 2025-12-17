@@ -54,3 +54,17 @@ export {
   type QuestionGroupData,
   type QuestionGroup,
 } from './output.schema.js';
+
+// Supplementary PDF schemas
+export {
+  SupplementaryScopeTypeSchema,
+  SupplementaryScopeSchema,
+  SupplementaryPdfSchema,
+  ExtractedAnswerSchema,
+  SupplementaryExtractionResultSchema,
+  type SupplementaryScopeType,
+  type SupplementaryScope,
+  type SupplementaryPdf,
+  type ExtractedAnswer,
+  type SupplementaryExtractionResult,
+} from './supplementary.schema.js';

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { loadPdf, loadImages } from '../core/loader/index.js';
-import type { QuestionGroup, Question } from '../core/schemas/index.js';
+import type { QuestionGroup, Question, SupplementaryPdf } from '../core/schemas/index.js';
 import type { CallMetrics } from '../core/ai/gemini-client.js';
 import { tagHints } from './hint-tagger.task.js';
 import { analyzePages } from './page-analyzer.task.js';
@@ -10,6 +10,7 @@ import {
   parseFillIn,
   parseShortAnswer,
 } from './parsers/index.js';
+import { enrichAnswers } from './answer-enricher.task.js';
 
 /** Aggregated metrics for the entire pipeline */
 interface PipelineMetrics {
@@ -82,6 +83,17 @@ const OrchestratorInputSchema = z.object({
 
   /** Import key string (UUID format recommended) */
   importKey: z.string().min(1),
+
+  /** Optional array of supplementary PDFs for answer enrichment */
+  supplementaryPdfs: z
+    .array(
+      z.object({
+        path: z.string(),
+        scope: z.any(),
+        filename: z.string(),
+      })
+    )
+    .optional(),
 });
 
 export type OrchestratorInput = z.infer<typeof OrchestratorInputSchema>;
@@ -238,7 +250,7 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
     // Step 6: Build final QuestionGroup
     console.log('[orchestrator] Step 6: Building final output...');
 
-    const questionGroup: QuestionGroup = {
+    let questionGroup: QuestionGroup = {
       data: {
         type: 'question_group',
         attributes: {
@@ -248,6 +260,35 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
         questions,
       },
     };
+
+    // Step 7: Enrich with supplementary PDFs (if provided)
+    if (payload.supplementaryPdfs && payload.supplementaryPdfs.length > 0) {
+      console.log('[orchestrator] Step 7: Enriching with supplementary PDFs...');
+
+      const enrichResult = await enrichAnswers({
+        questionGroup,
+        supplementaryPdfs: payload.supplementaryPdfs as SupplementaryPdf[],
+      });
+
+      // Collect metrics
+      for (const m of enrichResult.metrics) {
+        addMetrics(pipelineMetrics, m);
+      }
+
+      // Log enrichment summary
+      console.log(`[orchestrator] Enriched ${enrichResult.enrichmentLog.length} questions`);
+      for (const entry of enrichResult.enrichmentLog) {
+        console.log(
+          `[orchestrator]   Q${entry.questionPosition}: ${entry.fieldsUpdated.join(', ')} ` +
+            `(${entry.confidence} confidence from ${entry.sourceFile})`
+        );
+      }
+
+      // Use enriched group as final output
+      questionGroup = enrichResult.enrichedGroup;
+    } else {
+      console.log('[orchestrator] Step 7: No supplementary PDFs, skipping enrichment');
+    }
 
     console.log('[orchestrator] Pipeline completed successfully');
 

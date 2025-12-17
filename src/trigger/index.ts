@@ -18,3 +18,11 @@ export {
 
 // Orchestrator function
 export { orchestrate, type OrchestratorInput } from './orchestrator.task.js';
+
+// Answer enricher function
+export {
+  enrichAnswers,
+  type AnswerEnricherInput,
+  type AnswerEnricherResult,
+  type EnrichmentLogEntry,
+} from './answer-enricher.task.js';

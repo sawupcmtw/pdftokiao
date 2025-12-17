@@ -7,9 +7,11 @@ export { loadImage, loadImages, getImageMetadata, ImageLoaderError } from './ima
 // Test loader exports
 export {
   parsePdfFilename,
+  parseSupplementaryFilename,
   discoverTestCases,
   loadTestCase,
   formatTestCase,
+  formatSupplementaryScope,
   TestLoaderError,
   type TestCase,
 } from './test-loader.js';
