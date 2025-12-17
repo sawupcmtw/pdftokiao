@@ -47,3 +47,4 @@ pnpm-debug.log*
 .claude
 
 output
+.claude/settings.local.json
