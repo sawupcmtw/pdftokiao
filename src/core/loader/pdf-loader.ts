@@ -1,7 +1,10 @@
 import { readFile } from 'fs/promises'
 import { access } from 'fs/promises'
 import { constants } from 'fs'
-import pdf from 'pdf-parse'
+
+// pdf-parse uses CommonJS exports, need require for ESM compatibility
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdf: typeof import('pdf-parse') = require('pdf-parse')
 
 /**
  * Custom error class for PDF loader errors

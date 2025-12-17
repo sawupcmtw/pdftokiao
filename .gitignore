@@ -3,7 +3,7 @@ node_modules
 pnpm-lock.yaml
 
 # Build outputs
-dist
+# dist  # Commented out to allow dist/ to be tracked for npm consumption via Git URL
 build
 *.tsbuildinfo
 

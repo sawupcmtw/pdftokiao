@@ -20,4 +20,5 @@ export {
 // Export cache utilities (with aliases to avoid conflicts)
 export { getCached, setCached, generateCacheKey, cache } from './core/cache/index.js'
 
-// asdfasdfkhnaskdn
+// Export trigger/pipeline functions (orchestrators, parsers, etc.)
+export * from './trigger/index.js'
