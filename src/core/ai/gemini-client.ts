@@ -1,62 +1,62 @@
-import { google } from '@ai-sdk/google';
-import { generateObject } from 'ai';
-import { z } from 'zod';
+import { google } from '@ai-sdk/google'
+import { generateObject } from 'ai'
+import { z } from 'zod'
 import {
   getCached,
   setCached,
   generateCacheKey,
   clearCache as clearCacheImpl,
   getCacheStats as getCacheStatsImpl,
-} from '../cache/index.js';
+} from '../cache/index.js'
 
 // Configuration
-export const DEFAULT_MODEL = 'gemini-3-pro-preview';
-export const DEFAULT_TEMPERATURE = 0.7;
-export const MAX_RETRIES = 3;
-export const INITIAL_RETRY_DELAY = 1000; // 1 second
+export const DEFAULT_MODEL = 'gemini-3-pro-preview'
+export const DEFAULT_TEMPERATURE = 0.7
+export const MAX_RETRIES = 3
+export const INITIAL_RETRY_DELAY = 1000 // 1 second
 
 // Usage metrics from API response
 export interface UsageMetrics {
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
-  cachedInputTokens?: number;
-  cost: number;
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  cachedInputTokens?: number
+  cost: number
 }
 
 // Call metrics including timing and cache info
 export interface CallMetrics {
-  usage: UsageMetrics;
-  latencyMs: number;
-  cacheHit: boolean;
-  retryAttempts: number;
+  usage: UsageMetrics
+  latencyMs: number
+  cacheHit: boolean
+  retryAttempts: number
 }
 
 // Result type including both object and metrics
 export interface GenerateResult<T> {
-  object: T;
-  metrics: CallMetrics;
+  object: T
+  metrics: CallMetrics
 }
 
 // File input with mime type
 export interface FileInput {
-  buffer: Buffer;
-  mimeType: string;
+  buffer: Buffer
+  mimeType: string
 }
 
 // Options interface for structured generation
 export interface GenerateOptions<T extends z.ZodType> {
-  prompt: string;
+  prompt: string
   /** Image buffers (will use image/png mime type) */
-  images?: Buffer[];
+  images?: Buffer[]
   /** PDF buffer (will use application/pdf mime type) */
-  pdf?: Buffer;
+  pdf?: Buffer
   /** Generic files with explicit mime types */
-  files?: FileInput[];
-  schema: T;
-  cacheKey?: string;
-  temperature?: number;
-  model?: string;
+  files?: FileInput[]
+  schema: T
+  cacheKey?: string
+  temperature?: number
+  model?: string
 }
 
 // Error type for better error handling
@@ -65,8 +65,8 @@ export class GeminiError extends Error {
     message: string,
     public override readonly cause?: unknown
   ) {
-    super(message);
-    this.name = 'GeminiError';
+    super(message)
+    this.name = 'GeminiError'
   }
 }
 
@@ -77,8 +77,8 @@ export class GeminiError extends Error {
  * @returns A data URL string
  */
 function bufferToDataUrl(imageBuffer: Buffer, mimeType: string = 'image/png'): string {
-  const base64 = imageBuffer.toString('base64');
-  return `data:${mimeType};base64,${base64}`;
+  const base64 = imageBuffer.toString('base64')
+  return `data:${mimeType};base64,${base64}`
 }
 
 /**
@@ -86,7 +86,7 @@ function bufferToDataUrl(imageBuffer: Buffer, mimeType: string = 'image/png'): s
  * @param ms - Milliseconds to sleep
  */
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**
@@ -94,12 +94,12 @@ function sleep(ms: number): Promise<void> {
  */
 function formatApiError(error: unknown): string {
   if (error && typeof error === 'object') {
-    const err = error as Record<string, unknown>;
+    const err = error as Record<string, unknown>
 
     // Try to get the nested API error message (err.data.error.message)
-    const data = err['data'] as Record<string, unknown> | undefined;
-    const apiError = data?.['error'] as Record<string, unknown> | undefined;
-    const apiMessage = apiError?.['message'];
+    const data = err['data'] as Record<string, unknown> | undefined
+    const apiError = data?.['error'] as Record<string, unknown> | undefined
+    const apiMessage = apiError?.['message']
 
     if (typeof apiMessage === 'string') {
       // Extract schema paths from the error message
@@ -107,26 +107,26 @@ function formatApiError(error: unknown): string {
         .split('\n')
         .filter((line: string) => line.trim().startsWith('*'))
         .map((line: string) => {
-          const match = line.match(/properties\[([^\]]+)\]/g);
+          const match = line.match(/properties\[([^\]]+)\]/g)
           return match
             ? match.map((m) => m.replace(/properties\["|"\]/g, '')).join('.')
-            : line.trim();
-        });
+            : line.trim()
+        })
 
       if (paths.length > 0) {
-        return `Schema error at: ${paths.join(', ')}`;
+        return `Schema error at: ${paths.join(', ')}`
       }
-      return apiMessage.split('\n')[0] ?? apiMessage;
+      return apiMessage.split('\n')[0] ?? apiMessage
     }
 
     // Fallback to regular message
-    const message = err['message'];
+    const message = err['message']
     if (typeof message === 'string') {
-      return message.split('\n')[0] ?? message;
+      return message.split('\n')[0] ?? message
     }
   }
 
-  return String(error);
+  return String(error)
 }
 
 /**
@@ -138,7 +138,7 @@ function formatApiError(error: unknown): string {
 export async function generateStructured<T extends z.ZodType>(
   options: GenerateOptions<T>
 ): Promise<GenerateResult<z.infer<T>>> {
-  const startTime = Date.now();
+  const startTime = Date.now()
   const {
     prompt,
     images = [],
@@ -148,21 +148,21 @@ export async function generateStructured<T extends z.ZodType>(
     cacheKey,
     temperature = DEFAULT_TEMPERATURE,
     model = DEFAULT_MODEL,
-  } = options;
+  } = options
 
   // Collect all buffers for cache key generation
-  const allBuffers = [...images, ...(pdf ? [pdf] : []), ...files.map((f) => f.buffer)];
+  const allBuffers = [...images, ...(pdf ? [pdf] : []), ...files.map((f) => f.buffer)]
 
   // Generate cache key if not provided
   const effectiveCacheKey =
-    cacheKey || generateCacheKey(prompt, allBuffers.length > 0 ? allBuffers : undefined);
+    cacheKey || generateCacheKey(prompt, allBuffers.length > 0 ? allBuffers : undefined)
 
   // Check cache
-  const cached = getCached<z.infer<T>>(effectiveCacheKey);
+  const cached = getCached<z.infer<T>>(effectiveCacheKey)
   if (cached !== undefined) {
     // Validate cached data against schema
     try {
-      const validatedObject = schema.parse(cached) as z.infer<T>;
+      const validatedObject = schema.parse(cached) as z.infer<T>
       // Return cache hit with zero-token metrics
       return {
         object: validatedObject,
@@ -172,10 +172,10 @@ export async function generateStructured<T extends z.ZodType>(
           cacheHit: true,
           retryAttempts: 0,
         },
-      };
+      }
     } catch (error) {
       // If cached data doesn't match schema, continue to regenerate
-      console.warn('Cached data failed schema validation, regenerating...', error);
+      console.warn('Cached data failed schema validation, regenerating...', error)
     }
   }
 
@@ -183,16 +183,16 @@ export async function generateStructured<T extends z.ZodType>(
   type ContentPart =
     | { type: 'text'; text: string }
     | { type: 'image'; image: string }
-    | { type: 'file'; data: string; mimeType: string };
+    | { type: 'file'; data: string; mimeType: string }
 
-  const content: ContentPart[] = [{ type: 'text', text: prompt }];
+  const content: ContentPart[] = [{ type: 'text', text: prompt }]
 
   // Add images
   for (const buffer of images) {
     content.push({
       type: 'image',
       image: bufferToDataUrl(buffer, 'image/png'),
-    });
+    })
   }
 
   // Add PDF if provided
@@ -201,7 +201,7 @@ export async function generateStructured<T extends z.ZodType>(
       type: 'file',
       data: pdf.toString('base64'),
       mimeType: 'application/pdf',
-    });
+    })
   }
 
   // Add generic files
@@ -210,11 +210,11 @@ export async function generateStructured<T extends z.ZodType>(
       type: 'file',
       data: file.buffer.toString('base64'),
       mimeType: file.mimeType,
-    });
+    })
   }
 
   // Retry logic with exponential backoff
-  let lastError: unknown;
+  let lastError: unknown
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       // Generate structured output using AI SDK
@@ -228,16 +228,16 @@ export async function generateStructured<T extends z.ZodType>(
           },
         ],
         temperature,
-      });
+      })
 
       // Cache the result
-      setCached(effectiveCacheKey, result.object);
+      setCached(effectiveCacheKey, result.object)
 
       // Extract token usage from response
       // Note: Vercel AI SDK uses promptTokens/completionTokens naming
-      const inputTokens = result.usage?.promptTokens ?? 0;
-      const outputTokens = result.usage?.completionTokens ?? 0;
-      const totalTokens = result.usage?.totalTokens ?? inputTokens + outputTokens;
+      const inputTokens = result.usage?.promptTokens ?? 0
+      const outputTokens = result.usage?.completionTokens ?? 0
+      const totalTokens = result.usage?.totalTokens ?? inputTokens + outputTokens
 
       return {
         object: result.object,
@@ -252,23 +252,23 @@ export async function generateStructured<T extends z.ZodType>(
           cacheHit: false,
           retryAttempts: attempt,
         },
-      };
+      }
     } catch (error) {
-      lastError = error;
+      lastError = error
 
       // Don't retry on the last attempt
       if (attempt === MAX_RETRIES - 1) {
-        break;
+        break
       }
 
       // Calculate exponential backoff delay
-      const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+      const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt)
 
       // Log retry attempt (in production, use proper logger)
-      console.warn(`Gemini API failed (${attempt + 1}/${MAX_RETRIES}): ${formatApiError(error)}`);
+      console.warn(`Gemini API failed (${attempt + 1}/${MAX_RETRIES}): ${formatApiError(error)}`)
 
       // Wait before retrying
-      await sleep(delay);
+      await sleep(delay)
     }
   }
 
@@ -276,19 +276,19 @@ export async function generateStructured<T extends z.ZodType>(
   throw new GeminiError(
     `Failed to generate structured output after ${MAX_RETRIES} attempts`,
     lastError
-  );
+  )
 }
 
 /**
  * Clear the AI response cache
  */
 export function clearCache(): void {
-  clearCacheImpl();
+  clearCacheImpl()
 }
 
 /**
  * Get cache statistics
  */
 export function getCacheStats() {
-  return getCacheStatsImpl();
+  return getCacheStatsImpl()
 }

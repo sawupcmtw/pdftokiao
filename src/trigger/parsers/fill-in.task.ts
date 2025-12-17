@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js';
-import { FillInQuestionSchema, type FillInQuestion } from '../../core/schemas/index.js';
+import { z } from 'zod'
+import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js'
+import { FillInQuestionSchema, type FillInQuestion } from '../../core/schemas/index.js'
 
 /**
  * Input schema for fill-in parser
@@ -25,14 +25,14 @@ const FillInParserInputSchema = z.object({
 
   /** Optional instruction for parsing guidance */
   instruction: z.string().optional(),
-});
+})
 
-export type FillInParserInput = z.infer<typeof FillInParserInputSchema>;
+export type FillInParserInput = z.infer<typeof FillInParserInputSchema>
 
 /** Output with metrics for aggregation */
 export interface FillInParserResult {
-  question: FillInQuestion;
-  metrics: CallMetrics;
+  question: FillInQuestion
+  metrics: CallMetrics
 }
 
 /**
@@ -47,14 +47,14 @@ export interface FillInParserResult {
  * - Optional explanations
  */
 export async function parseFillIn(payload: FillInParserInput): Promise<FillInParserResult> {
-  const startPage = payload.pages[0];
-  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
-  const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`;
+  const startPage = payload.pages[0]
+  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0]
+  const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`
 
   try {
     console.log(
       `[parser-fill-in] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`
-    );
+    )
 
     // Create prompt for parsing
     const prompt = `Parse the fill-in-the-blank question found on ${pageRange} of this PDF.
@@ -83,7 +83,7 @@ Focus only on ${pageRange} and extract the following information:
 
 Note: Fill-in questions do NOT have options.
 
-Return the complete question in the import API format.`;
+Return the complete question in the import API format.`
 
     // Use Gemini to parse the question from PDF
     const { object: question, metrics } = await generateStructured({
@@ -91,24 +91,24 @@ Return the complete question in the import API format.`;
       pdf: payload.pdf,
       schema: FillInQuestionSchema,
       cacheKey: `fill-in-${payload.crossId}-${payload.position}`,
-    });
+    })
 
     // Log metrics
     const metricsStr = metrics.cacheHit
       ? 'CACHE HIT'
-      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
-    console.log(`[parser-fill-in] Q${payload.position}: ${metricsStr}`);
+      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`
+    console.log(`[parser-fill-in] Q${payload.position}: ${metricsStr}`)
 
     console.log(
       `[parser-fill-in] Successfully parsed question ${payload.position} ` +
         `with ${question.attributes.answer.length} blank(s)`
-    );
+    )
 
-    return { question, metrics };
+    return { question, metrics }
   } catch (error) {
-    console.error('[parser-fill-in] Error parsing question:', error);
+    console.error('[parser-fill-in] Error parsing question:', error)
     throw new Error(
       `Failed to parse fill-in question: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    )
   }
 }

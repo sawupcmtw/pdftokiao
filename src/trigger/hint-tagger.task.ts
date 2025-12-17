@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { generateStructured, type CallMetrics } from '../core/ai/gemini-client.js';
-import { HintTagSchema, type HintTag } from '../core/schemas/index.js';
+import { z } from 'zod'
+import { generateStructured, type CallMetrics } from '../core/ai/gemini-client.js'
+import { HintTagSchema, type HintTag } from '../core/schemas/index.js'
 
 /**
  * Input schema for hint tagger
@@ -8,9 +8,9 @@ import { HintTagSchema, type HintTag } from '../core/schemas/index.js';
 const HintTaggerInputSchema = z.object({
   /** Array of hint image Buffers */
   hints: z.array(z.instanceof(Buffer)),
-});
+})
 
-export type HintTaggerInput = z.infer<typeof HintTaggerInputSchema>;
+export type HintTaggerInput = z.infer<typeof HintTaggerInputSchema>
 
 /**
  * Output schema for hint tagger
@@ -18,14 +18,14 @@ export type HintTaggerInput = z.infer<typeof HintTaggerInputSchema>;
 const HintTaggerOutputSchema = z.object({
   /** Array of hint tags with question type detection */
   tags: z.array(HintTagSchema),
-});
+})
 
-export type HintTaggerOutput = z.infer<typeof HintTaggerOutputSchema>;
+export type HintTaggerOutput = z.infer<typeof HintTaggerOutputSchema>
 
 /** Output with metrics for aggregation */
 export interface HintTaggerResult {
-  output: HintTaggerOutput;
-  metrics: CallMetrics[];
+  output: HintTaggerOutput
+  metrics: CallMetrics[]
 }
 
 /**
@@ -38,21 +38,19 @@ export interface HintTaggerResult {
  */
 export async function tagHints(payload: HintTaggerInput): Promise<HintTaggerResult> {
   try {
-    console.log(`[hint-tagger] Processing ${payload.hints.length} hint images...`);
+    console.log(`[hint-tagger] Processing ${payload.hints.length} hint images...`)
 
-    const tags: HintTag[] = [];
-    const allMetrics: CallMetrics[] = [];
+    const tags: HintTag[] = []
+    const allMetrics: CallMetrics[] = []
 
     // Process each hint image
     for (let imageIndex = 0; imageIndex < payload.hints.length; imageIndex++) {
-      const hintBuffer = payload.hints[imageIndex];
+      const hintBuffer = payload.hints[imageIndex]
       if (!hintBuffer) {
-        throw new Error(`Hint buffer at index ${imageIndex} is undefined`);
+        throw new Error(`Hint buffer at index ${imageIndex} is undefined`)
       }
 
-      console.log(
-        `[hint-tagger] Analyzing hint image ${imageIndex + 1}/${payload.hints.length}...`
-      );
+      console.log(`[hint-tagger] Analyzing hint image ${imageIndex + 1}/${payload.hints.length}...`)
 
       // Create prompt for hint analysis
       const prompt = `Analyze this hint image and determine the question type.
@@ -67,7 +65,7 @@ Provide:
 1. The question type
 2. A brief description of what the hint shows
 
-Return the result in the specified format.`;
+Return the result in the specified format.`
 
       // Use Gemini to analyze the hint image
       const { object: result, metrics } = await generateStructured({
@@ -78,35 +76,35 @@ Return the result in the specified format.`;
           description: z.string(),
         }),
         cacheKey: `hint-tag-${imageIndex}`,
-      });
+      })
 
-      allMetrics.push(metrics);
+      allMetrics.push(metrics)
 
       // Log metrics
       const metricsStr = metrics.cacheHit
         ? 'CACHE HIT'
-        : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
-      console.log(`[hint-tagger] Hint ${imageIndex + 1}: ${metricsStr}`);
+        : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`
+      console.log(`[hint-tagger] Hint ${imageIndex + 1}: ${metricsStr}`)
 
       // Add the tag with image index
       tags.push({
         imageIndex,
         type: result.type,
         description: result.description,
-      });
+      })
 
       console.log(
         `[hint-tagger] Hint ${imageIndex + 1}: type=${result.type}, description="${result.description}"`
-      );
+      )
     }
 
-    console.log(`[hint-tagger] Completed tagging ${tags.length} hints`);
+    console.log(`[hint-tagger] Completed tagging ${tags.length} hints`)
 
-    return { output: { tags }, metrics: allMetrics };
+    return { output: { tags }, metrics: allMetrics }
   } catch (error) {
-    console.error('[hint-tagger] Error processing hints:', error);
+    console.error('[hint-tagger] Error processing hints:', error)
     throw new Error(
       `Failed to tag hint images: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    )
   }
 }

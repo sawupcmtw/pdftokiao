@@ -1,13 +1,13 @@
 // Zod schemas for validation
 
 // Input schemas
-export { ParseInputSchema, type ParseInput } from './input.schema.js';
+export { ParseInputSchema, type ParseInput } from './input.schema.js'
 
 // Hint schemas
-export { HintTagSchema, type HintTag } from './hint.schema.js';
+export { HintTagSchema, type HintTag } from './hint.schema.js'
 
 // Page map schemas
-export { PageMapSchema, PageItemSchema, type PageMap, type PageItem } from './page-map.schema.js';
+export { PageMapSchema, PageItemSchema, type PageMap, type PageItem } from './page-map.schema.js'
 
 // Question schemas
 export {
@@ -43,7 +43,7 @@ export {
   type ShortAnswerQuestion,
   type EMISingleSelectQuestion,
   type Question,
-} from './question.schema.js';
+} from './question.schema.js'
 
 // Output schemas
 export {
@@ -53,7 +53,7 @@ export {
   type QuestionGroupAttributes,
   type QuestionGroupData,
   type QuestionGroup,
-} from './output.schema.js';
+} from './output.schema.js'
 
 // Supplementary PDF schemas
 export {
@@ -67,4 +67,4 @@ export {
   type SupplementaryPdf,
   type ExtractedAnswer,
   type SupplementaryExtractionResult,
-} from './supplementary.schema.js';
+} from './supplementary.schema.js'

@@ -1,15 +1,15 @@
-import type { QuestionGroup, Question, Option, Explanation } from '../schemas/index.js';
-import { QuestionGroupSchema } from '../schemas/index.js';
+import type { QuestionGroup, Question, Option, Explanation } from '../schemas/index.js'
+import { QuestionGroupSchema } from '../schemas/index.js'
 
 /**
  * Configuration for merging parser results
  */
 export interface MergeConfig {
   /** Material ID to assign to the question group */
-  materialId: number;
+  materialId: number
 
   /** Import key (UUID format recommended) */
-  importKey: string;
+  importKey: string
 }
 
 /**
@@ -17,19 +17,19 @@ export interface MergeConfig {
  */
 export interface ParserResult {
   /** Question type */
-  type: 'single_select' | 'multi_select' | 'fill_in' | 'short_answer' | 'emi_single_select';
+  type: 'single_select' | 'multi_select' | 'fill_in' | 'short_answer' | 'emi_single_select'
 
   /** Questions from this parser result */
-  questions: Question[];
+  questions: Question[]
 
   /** Group-level options (for EMI types) */
-  groupOptions?: Option[];
+  groupOptions?: Option[]
 
   /** Group-level explanation (for EMI types) */
-  groupExplanation?: Explanation;
+  groupExplanation?: Explanation
 
   /** Group-level text content (for EMI types, e.g., reading passage) */
-  groupText?: string;
+  groupText?: string
 }
 
 /**
@@ -40,7 +40,7 @@ function validateParserResult(result: ParserResult): void {
     if (question.attributes.assessment_form !== result.type) {
       throw new Error(
         `Question type mismatch: expected ${result.type}, got ${question.attributes.assessment_form}`
-      );
+      )
     }
   }
 }
@@ -50,12 +50,12 @@ function validateParserResult(result: ParserResult): void {
  */
 function validateEMIResult(result: ParserResult): void {
   if (result.type !== 'emi_single_select') {
-    return;
+    return
   }
 
   // EMI types must have group options
   if (!result.groupOptions || result.groupOptions.length === 0) {
-    throw new Error('EMI single-select questions must have groupOptions defined');
+    throw new Error('EMI single-select questions must have groupOptions defined')
   }
 
   // EMI questions should not have individual options
@@ -63,7 +63,7 @@ function validateEMIResult(result: ParserResult): void {
     if ('options' in question && question.options && question.options.length > 0) {
       throw new Error(
         'EMI single-select questions should not have individual options; options should be at group level'
-      );
+      )
     }
   }
 }
@@ -81,7 +81,7 @@ function assignPositions(questions: Question[], startPosition: number): Question
           position: startPosition + index,
         },
       }) as Question
-  );
+  )
 }
 
 /**
@@ -117,52 +117,52 @@ function assignPositions(questions: Question[], startPosition: number): Question
 export function mergeQuestionGroups(results: ParserResult[], config: MergeConfig): QuestionGroup {
   // Validate inputs
   if (!results || results.length === 0) {
-    throw new Error('Cannot merge empty results array');
+    throw new Error('Cannot merge empty results array')
   }
 
   if (!config.materialId || config.materialId <= 0) {
-    throw new Error('Invalid materialId: must be a positive integer');
+    throw new Error('Invalid materialId: must be a positive integer')
   }
 
   if (!config.importKey || config.importKey.trim().length === 0) {
-    throw new Error('Invalid importKey: must be a non-empty string');
+    throw new Error('Invalid importKey: must be a non-empty string')
   }
 
   // Validate each parser result
   for (const result of results) {
-    validateParserResult(result);
-    validateEMIResult(result);
+    validateParserResult(result)
+    validateEMIResult(result)
   }
 
   // Check for conflicting group-level attributes
-  const hasMultipleEMI = results.filter((r) => r.type === 'emi_single_select').length > 1;
+  const hasMultipleEMI = results.filter((r) => r.type === 'emi_single_select').length > 1
 
   if (hasMultipleEMI) {
     throw new Error(
       'Cannot merge multiple EMI results with different group-level attributes. ' +
         'EMI questions must be in a single parser result.'
-    );
+    )
   }
 
   // Collect group-level attributes from EMI result (if present)
-  const emiResult = results.find((r) => r.type === 'emi_single_select');
-  const groupOptions = emiResult?.groupOptions;
-  const groupExplanation = emiResult?.groupExplanation;
-  const groupText = emiResult?.groupText;
+  const emiResult = results.find((r) => r.type === 'emi_single_select')
+  const groupOptions = emiResult?.groupOptions
+  const groupExplanation = emiResult?.groupExplanation
+  const groupText = emiResult?.groupText
 
   // Combine all questions and assign sequential positions
-  let allQuestions: Question[] = [];
-  let currentPosition = 1;
+  let allQuestions: Question[] = []
+  let currentPosition = 1
 
   for (const result of results) {
-    const questionsWithPositions = assignPositions(result.questions, currentPosition);
-    allQuestions = allQuestions.concat(questionsWithPositions);
-    currentPosition += result.questions.length;
+    const questionsWithPositions = assignPositions(result.questions, currentPosition)
+    allQuestions = allQuestions.concat(questionsWithPositions)
+    currentPosition += result.questions.length
   }
 
   // Validate that we have at least one question
   if (allQuestions.length === 0) {
-    throw new Error('Cannot create QuestionGroup with no questions');
+    throw new Error('Cannot create QuestionGroup with no questions')
   }
 
   // Build the QuestionGroup object
@@ -178,18 +178,18 @@ export function mergeQuestionGroups(results: ParserResult[], config: MergeConfig
       ...(groupOptions && { options: groupOptions }),
       ...(groupExplanation && { explanation: groupExplanation }),
     },
-  };
+  }
 
   // Validate against schema
   try {
-    QuestionGroupSchema.parse(questionGroup);
+    QuestionGroupSchema.parse(questionGroup)
   } catch (error) {
     throw new Error(
       `Failed to validate merged QuestionGroup: ${error instanceof Error ? error.message : String(error)}`
-    );
+    )
   }
 
-  return questionGroup;
+  return questionGroup
 }
 
 /**
@@ -205,6 +205,6 @@ export function mergeQuestionGroupsToJSON(
   config: MergeConfig,
   pretty: boolean = true
 ): string {
-  const questionGroup = mergeQuestionGroups(results, config);
-  return JSON.stringify(questionGroup, null, pretty ? 2 : 0);
+  const questionGroup = mergeQuestionGroups(results, config)
+  return JSON.stringify(questionGroup, null, pretty ? 2 : 0)
 }

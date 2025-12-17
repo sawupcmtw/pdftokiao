@@ -4,4 +4,4 @@ export {
   mergeQuestionGroupsToJSON,
   type MergeConfig,
   type ParserResult,
-} from './output-merger.js';
+} from './output-merger.js'

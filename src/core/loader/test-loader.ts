@@ -1,18 +1,18 @@
-import { readdir, readFile, stat } from 'fs/promises';
-import { join, basename } from 'path';
-import type { SupplementaryPdf, SupplementaryScope } from '../schemas/index.js';
+import { readdir, readFile, stat } from 'fs/promises'
+import { join, basename } from 'path'
+import type { SupplementaryPdf, SupplementaryScope } from '../schemas/index.js'
 
 /**
  * Represents a discovered test case
  */
 export interface TestCase {
-  name: string;
-  pages: [number] | [number, number];
-  pdfPath: string;
-  instruction?: string;
-  hintPaths: string[];
-  folderPath: string;
-  supplementaryPdfs: SupplementaryPdf[];
+  name: string
+  pages: [number] | [number, number]
+  pdfPath: string
+  instruction?: string
+  hintPaths: string[]
+  folderPath: string
+  supplementaryPdfs: SupplementaryPdf[]
 }
 
 /**
@@ -20,22 +20,22 @@ export interface TestCase {
  */
 export class TestLoaderError extends Error {
   constructor(message: string) {
-    super(message);
-    this.name = 'TestLoaderError';
+    super(message)
+    this.name = 'TestLoaderError'
   }
 }
 
 // Regex: matches "CONTENT-[start]" or "CONTENT-[start,end]" with .pdf extension
-const PDF_PATTERN = /^CONTENT-\[(\d+)(?:,(\d+))?\]\.pdf$/i;
+const PDF_PATTERN = /^CONTENT-\[(\d+)(?:,(\d+))?\]\.pdf$/i
 
 // Regex: matches supplementary PDF files with scope
 // Examples: SUPP-all.pdf, SUPP-pages-1-5.pdf, SUPP-type-single_select.pdf, SUPP-questions-1,2,5.pdf
 const SUPP_PATTERN =
-  /^SUPP-(all|pages-(\d+)(?:-(\d+))?|type-(single_select|multi_select|fill_in|short_answer)|questions-(\d+(?:,\d+)*))\.pdf$/i;
+  /^SUPP-(all|pages-(\d+)(?:-(\d+))?|type-(single_select|multi_select|fill_in|short_answer)|questions-(\d+(?:,\d+)*))\.pdf$/i
 
 // File name constants
-const INSTRUCTION_FILE = 'INST.txt';
-const HINT_PATTERN = /^IMAGE-.+\.(jpg|jpeg|png)$/i;
+const INSTRUCTION_FILE = 'INST.txt'
+const HINT_PATTERN = /^IMAGE-.+\.(jpg|jpeg|png)$/i
 
 /**
  * Parse a PDF filename to extract page range
@@ -43,26 +43,26 @@ const HINT_PATTERN = /^IMAGE-.+\.(jpg|jpeg|png)$/i;
  * @returns Parsed pages, or null if invalid format
  */
 export function parsePdfFilename(filename: string): { pages: [number] | [number, number] } | null {
-  const match = filename.match(PDF_PATTERN);
+  const match = filename.match(PDF_PATTERN)
   if (!match) {
-    return null;
+    return null
   }
 
-  const startPage = parseInt(match[1]!, 10);
-  const endPage = match[2] ? parseInt(match[2], 10) : undefined;
+  const startPage = parseInt(match[1]!, 10)
+  const endPage = match[2] ? parseInt(match[2], 10) : undefined
 
   if (startPage < 1) {
-    return null;
+    return null
   }
 
   if (endPage !== undefined) {
     if (endPage < 1 || startPage > endPage) {
-      return null;
+      return null
     }
-    return { pages: [startPage, endPage] };
+    return { pages: [startPage, endPage] }
   }
 
-  return { pages: [startPage] };
+  return { pages: [startPage] }
 }
 
 /**
@@ -71,26 +71,26 @@ export function parsePdfFilename(filename: string): { pages: [number] | [number,
  * @returns Parsed scope, or null if invalid format
  */
 export function parseSupplementaryFilename(filename: string): SupplementaryScope | null {
-  const match = filename.match(SUPP_PATTERN);
+  const match = filename.match(SUPP_PATTERN)
   if (!match) {
-    return null;
+    return null
   }
 
-  const scopeStr = match[1]!.toLowerCase();
+  const scopeStr = match[1]!.toLowerCase()
 
   // Handle 'all' scope
   if (scopeStr === 'all') {
-    return { type: 'all' };
+    return { type: 'all' }
   }
 
   // Handle 'pages-X' or 'pages-X-Y' scope
   if (scopeStr.startsWith('pages-')) {
-    const startPage = parseInt(match[2]!, 10);
-    const endPage = match[3] ? parseInt(match[3], 10) : startPage;
+    const startPage = parseInt(match[2]!, 10)
+    const endPage = match[3] ? parseInt(match[3], 10) : startPage
     if (startPage < 1 || endPage < startPage) {
-      return null;
+      return null
     }
-    return { type: 'pages', startPage, endPage };
+    return { type: 'pages', startPage, endPage }
   }
 
   // Handle 'type-X' scope
@@ -99,20 +99,20 @@ export function parseSupplementaryFilename(filename: string): SupplementaryScope
       | 'single_select'
       | 'multi_select'
       | 'fill_in'
-      | 'short_answer';
-    return { type: 'type', questionType };
+      | 'short_answer'
+    return { type: 'type', questionType }
   }
 
   // Handle 'questions-X,Y,Z' scope
   if (scopeStr.startsWith('questions-')) {
-    const questionNumbers = match[5]!.split(',').map((n) => parseInt(n, 10));
+    const questionNumbers = match[5]!.split(',').map((n) => parseInt(n, 10))
     if (questionNumbers.some((n) => n < 1 || isNaN(n))) {
-      return null;
+      return null
     }
-    return { type: 'questions', questionNumbers };
+    return { type: 'questions', questionNumbers }
   }
 
-  return null;
+  return null
 }
 
 /**
@@ -121,18 +121,18 @@ export function parseSupplementaryFilename(filename: string): SupplementaryScope
  * @returns Array of supplementary PDF metadata
  */
 async function findSupplementaryPdfs(folderPath: string): Promise<SupplementaryPdf[]> {
-  const supplementaryPdfs: SupplementaryPdf[] = [];
+  const supplementaryPdfs: SupplementaryPdf[] = []
 
   try {
-    const files = await readdir(folderPath);
+    const files = await readdir(folderPath)
     for (const file of files) {
-      const scope = parseSupplementaryFilename(file);
+      const scope = parseSupplementaryFilename(file)
       if (scope) {
         supplementaryPdfs.push({
           path: join(folderPath, file),
           scope,
           filename: file,
-        });
+        })
       }
     }
   } catch {
@@ -140,10 +140,10 @@ async function findSupplementaryPdfs(folderPath: string): Promise<SupplementaryP
   }
 
   // Sort by scope type for consistent ordering: all > pages > type > questions
-  const scopeOrder: Record<string, number> = { all: 0, pages: 1, type: 2, questions: 3 };
-  supplementaryPdfs.sort((a, b) => scopeOrder[a.scope.type]! - scopeOrder[b.scope.type]!);
+  const scopeOrder: Record<string, number> = { all: 0, pages: 1, type: 2, questions: 3 }
+  supplementaryPdfs.sort((a, b) => scopeOrder[a.scope.type]! - scopeOrder[b.scope.type]!)
 
-  return supplementaryPdfs;
+  return supplementaryPdfs
 }
 
 /**
@@ -155,20 +155,20 @@ async function findContentPdf(
   folderPath: string
 ): Promise<{ pdfPath: string; pages: [number] | [number, number] } | null> {
   try {
-    const files = await readdir(folderPath);
+    const files = await readdir(folderPath)
     for (const file of files) {
-      const parsed = parsePdfFilename(file);
+      const parsed = parsePdfFilename(file)
       if (parsed) {
         return {
           pdfPath: join(folderPath, file),
           pages: parsed.pages,
-        };
+        }
       }
     }
   } catch {
     // Ignore errors
   }
-  return null;
+  return null
 }
 
 /**
@@ -177,48 +177,48 @@ async function findContentPdf(
  * @returns Array of discovered test cases
  */
 export async function discoverTestCases(baseDir: string): Promise<TestCase[]> {
-  const testCases: TestCase[] = [];
+  const testCases: TestCase[] = []
 
-  let entries: string[];
+  let entries: string[]
   try {
-    entries = await readdir(baseDir);
+    entries = await readdir(baseDir)
   } catch {
-    throw new TestLoaderError(`Cannot read directory: ${baseDir}`);
+    throw new TestLoaderError(`Cannot read directory: ${baseDir}`)
   }
 
   for (const entry of entries) {
-    const folderPath = join(baseDir, entry);
+    const folderPath = join(baseDir, entry)
 
     // Check if it's a directory
     try {
-      const stats = await stat(folderPath);
+      const stats = await stat(folderPath)
       if (!stats.isDirectory()) {
-        continue;
+        continue
       }
     } catch {
-      continue;
+      continue
     }
 
     // Check if folder contains a valid CONTENT-[pages].pdf
-    const pdfInfo = await findContentPdf(folderPath);
+    const pdfInfo = await findContentPdf(folderPath)
     if (!pdfInfo) {
-      continue;
+      continue
     }
 
     // Load the full test case
     try {
-      const testCase = await loadTestCase(folderPath);
-      testCases.push(testCase);
+      const testCase = await loadTestCase(folderPath)
+      testCases.push(testCase)
     } catch {
       // Skip invalid test cases
-      continue;
+      continue
     }
   }
 
   // Sort by name for consistent ordering
-  testCases.sort((a, b) => a.name.localeCompare(b.name));
+  testCases.sort((a, b) => a.name.localeCompare(b.name))
 
-  return testCases;
+  return testCases
 }
 
 /**
@@ -227,43 +227,43 @@ export async function discoverTestCases(baseDir: string): Promise<TestCase[]> {
  * @returns Loaded test case with all file paths resolved
  */
 export async function loadTestCase(folderPath: string): Promise<TestCase> {
-  const folderName = basename(folderPath);
+  const folderName = basename(folderPath)
 
   // Find CONTENT-[pages].pdf
-  const pdfInfo = await findContentPdf(folderPath);
+  const pdfInfo = await findContentPdf(folderPath)
   if (!pdfInfo) {
     throw new TestLoaderError(
       `Missing CONTENT-[pages].pdf in ${folderPath}. Expected format: CONTENT-[1].pdf or CONTENT-[1,3].pdf`
-    );
+    )
   }
 
   // Check for optional INST.txt
-  let instruction: string | undefined;
-  const instructionPath = join(folderPath, INSTRUCTION_FILE);
+  let instruction: string | undefined
+  const instructionPath = join(folderPath, INSTRUCTION_FILE)
   try {
-    await stat(instructionPath);
-    instruction = (await readFile(instructionPath, 'utf-8')).trim();
+    await stat(instructionPath)
+    instruction = (await readFile(instructionPath, 'utf-8')).trim()
   } catch {
     // Instruction file is optional
   }
 
   // Find hint images (IMAGE-*.jpg, IMAGE-*.png)
-  const hintPaths: string[] = [];
+  const hintPaths: string[] = []
   try {
-    const files = await readdir(folderPath);
+    const files = await readdir(folderPath)
     for (const file of files) {
       if (HINT_PATTERN.test(file)) {
-        hintPaths.push(join(folderPath, file));
+        hintPaths.push(join(folderPath, file))
       }
     }
     // Sort for consistent ordering
-    hintPaths.sort();
+    hintPaths.sort()
   } catch {
     // Ignore errors reading directory for hints
   }
 
   // Find supplementary PDFs (SUPP-*.pdf)
-  const supplementaryPdfs = await findSupplementaryPdfs(folderPath);
+  const supplementaryPdfs = await findSupplementaryPdfs(folderPath)
 
   const result: TestCase = {
     name: folderName,
@@ -272,13 +272,13 @@ export async function loadTestCase(folderPath: string): Promise<TestCase> {
     hintPaths,
     folderPath,
     supplementaryPdfs,
-  };
-
-  if (instruction) {
-    result.instruction = instruction;
   }
 
-  return result;
+  if (instruction) {
+    result.instruction = instruction
+  }
+
+  return result
 }
 
 /**
@@ -290,19 +290,19 @@ export function formatTestCase(testCase: TestCase): string {
   const pageStr =
     testCase.pages.length === 1
       ? `page ${testCase.pages[0]}`
-      : `pages ${testCase.pages[0]}-${testCase.pages[1]}`;
+      : `pages ${testCase.pages[0]}-${testCase.pages[1]}`
 
   const hintStr =
-    testCase.hintPaths.length > 0 ? `${testCase.hintPaths.length} hint(s)` : 'no hints';
+    testCase.hintPaths.length > 0 ? `${testCase.hintPaths.length} hint(s)` : 'no hints'
 
   const suppStr =
     testCase.supplementaryPdfs.length > 0
       ? `${testCase.supplementaryPdfs.length} supp(s)`
-      : 'no supplementary';
+      : 'no supplementary'
 
-  const instStr = testCase.instruction ? 'has instruction' : 'no instruction';
+  const instStr = testCase.instruction ? 'has instruction' : 'no instruction'
 
-  return `${testCase.name} [${pageStr}] - ${hintStr}, ${suppStr}, ${instStr}`;
+  return `${testCase.name} [${pageStr}] - ${hintStr}, ${suppStr}, ${instStr}`
 }
 
 /**
@@ -313,14 +313,14 @@ export function formatTestCase(testCase: TestCase): string {
 export function formatSupplementaryScope(scope: SupplementaryScope): string {
   switch (scope.type) {
     case 'all':
-      return 'all questions';
+      return 'all questions'
     case 'pages':
       return scope.startPage === scope.endPage
         ? `page ${scope.startPage}`
-        : `pages ${scope.startPage}-${scope.endPage}`;
+        : `pages ${scope.startPage}-${scope.endPage}`
     case 'type':
-      return `${scope.questionType.replace('_', ' ')} type`;
+      return `${scope.questionType.replace('_', ' ')} type`
     case 'questions':
-      return `questions ${scope.questionNumbers.join(', ')}`;
+      return `questions ${scope.questionNumbers.join(', ')}`
   }
 }

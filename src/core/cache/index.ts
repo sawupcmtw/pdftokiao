@@ -6,4 +6,4 @@ export {
   clearCache,
   getCacheStats,
   cache,
-} from './response-cache.js';
+} from './response-cache.js'

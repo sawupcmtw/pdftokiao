@@ -1,11 +1,11 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 /**
  * Scope types for supplementary PDFs
  */
-export const SupplementaryScopeTypeSchema = z.enum(['all', 'pages', 'type', 'questions']);
+export const SupplementaryScopeTypeSchema = z.enum(['all', 'pages', 'type', 'questions'])
 
-export type SupplementaryScopeType = z.infer<typeof SupplementaryScopeTypeSchema>;
+export type SupplementaryScopeType = z.infer<typeof SupplementaryScopeTypeSchema>
 
 /**
  * Discriminated union for supplementary PDF scope
@@ -27,9 +27,9 @@ export const SupplementaryScopeSchema = z.discriminatedUnion('type', [
     type: z.literal('questions'),
     questionNumbers: z.array(z.number().int().positive()),
   }),
-]);
+])
 
-export type SupplementaryScope = z.infer<typeof SupplementaryScopeSchema>;
+export type SupplementaryScope = z.infer<typeof SupplementaryScopeSchema>
 
 /**
  * Metadata for a discovered supplementary PDF
@@ -38,9 +38,9 @@ export const SupplementaryPdfSchema = z.object({
   path: z.string(),
   scope: SupplementaryScopeSchema,
   filename: z.string(),
-});
+})
 
-export type SupplementaryPdf = z.infer<typeof SupplementaryPdfSchema>;
+export type SupplementaryPdf = z.infer<typeof SupplementaryPdfSchema>
 
 /**
  * Extracted answer from a supplementary PDF
@@ -56,9 +56,9 @@ export const ExtractedAnswerSchema = z.object({
     })
     .optional(),
   confidence: z.enum(['high', 'medium', 'low']),
-});
+})
 
-export type ExtractedAnswer = z.infer<typeof ExtractedAnswerSchema>;
+export type ExtractedAnswer = z.infer<typeof ExtractedAnswerSchema>
 
 /**
  * Result from extracting answers from a single supplementary PDF
@@ -67,6 +67,6 @@ export const SupplementaryExtractionResultSchema = z.object({
   sourcePdf: z.string(),
   scope: SupplementaryScopeSchema,
   answers: z.array(ExtractedAnswerSchema),
-});
+})
 
-export type SupplementaryExtractionResult = z.infer<typeof SupplementaryExtractionResultSchema>;
+export type SupplementaryExtractionResult = z.infer<typeof SupplementaryExtractionResultSchema>

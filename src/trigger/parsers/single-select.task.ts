@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js';
-import { SingleSelectQuestionSchema, type SingleSelectQuestion } from '../../core/schemas/index.js';
+import { z } from 'zod'
+import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js'
+import { SingleSelectQuestionSchema, type SingleSelectQuestion } from '../../core/schemas/index.js'
 
 /**
  * Input schema for single-select parser
@@ -25,14 +25,14 @@ const SingleSelectParserInputSchema = z.object({
 
   /** Optional instruction for parsing guidance */
   instruction: z.string().optional(),
-});
+})
 
-export type SingleSelectParserInput = z.infer<typeof SingleSelectParserInputSchema>;
+export type SingleSelectParserInput = z.infer<typeof SingleSelectParserInputSchema>
 
 /** Output with metrics for aggregation */
 export interface SingleSelectParserResult {
-  question: SingleSelectQuestion;
-  metrics: CallMetrics;
+  question: SingleSelectQuestion
+  metrics: CallMetrics
 }
 
 /**
@@ -48,14 +48,14 @@ export interface SingleSelectParserResult {
 export async function parseSingleSelect(
   payload: SingleSelectParserInput
 ): Promise<SingleSelectParserResult> {
-  const startPage = payload.pages[0];
-  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
-  const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`;
+  const startPage = payload.pages[0]
+  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0]
+  const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`
 
   try {
     console.log(
       `[parser-single-select] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`
-    );
+    )
 
     // Create prompt for parsing
     const prompt = `Parse the single-select (multiple choice) question found on ${pageRange} of this PDF.
@@ -88,7 +88,7 @@ Focus only on ${pageRange} and extract the following information:
 
 4. Optional per-option explanations
 
-Return the complete question in the import API format.`;
+Return the complete question in the import API format.`
 
     // Use Gemini to parse the question from PDF
     const { object: question, metrics } = await generateStructured({
@@ -96,24 +96,24 @@ Return the complete question in the import API format.`;
       pdf: payload.pdf,
       schema: SingleSelectQuestionSchema,
       cacheKey: `single-select-${payload.crossId}-${payload.position}`,
-    });
+    })
 
     // Log metrics
     const metricsStr = metrics.cacheHit
       ? 'CACHE HIT'
-      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
-    console.log(`[parser-single-select] Q${payload.position}: ${metricsStr}`);
+      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`
+    console.log(`[parser-single-select] Q${payload.position}: ${metricsStr}`)
 
     console.log(
       `[parser-single-select] Successfully parsed question ${payload.position} ` +
         `with ${question.options.length} options`
-    );
+    )
 
-    return { question, metrics };
+    return { question, metrics }
   } catch (error) {
-    console.error('[parser-single-select] Error parsing question:', error);
+    console.error('[parser-single-select] Error parsing question:', error)
     throw new Error(
       `Failed to parse single-select question: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    )
   }
 }

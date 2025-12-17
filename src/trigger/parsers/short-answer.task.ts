@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js';
-import { ShortAnswerQuestionSchema, type ShortAnswerQuestion } from '../../core/schemas/index.js';
+import { z } from 'zod'
+import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js'
+import { ShortAnswerQuestionSchema, type ShortAnswerQuestion } from '../../core/schemas/index.js'
 
 /**
  * Input schema for short-answer parser
@@ -25,14 +25,14 @@ const ShortAnswerParserInputSchema = z.object({
 
   /** Optional instruction for parsing guidance */
   instruction: z.string().optional(),
-});
+})
 
-export type ShortAnswerParserInput = z.infer<typeof ShortAnswerParserInputSchema>;
+export type ShortAnswerParserInput = z.infer<typeof ShortAnswerParserInputSchema>
 
 /** Output with metrics for aggregation */
 export interface ShortAnswerParserResult {
-  question: ShortAnswerQuestion;
-  metrics: CallMetrics;
+  question: ShortAnswerQuestion
+  metrics: CallMetrics
 }
 
 /**
@@ -48,14 +48,14 @@ export interface ShortAnswerParserResult {
 export async function parseShortAnswer(
   payload: ShortAnswerParserInput
 ): Promise<ShortAnswerParserResult> {
-  const startPage = payload.pages[0];
-  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
-  const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`;
+  const startPage = payload.pages[0]
+  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0]
+  const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`
 
   try {
     console.log(
       `[parser-short-answer] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`
-    );
+    )
 
     // Create prompt for parsing
     const prompt = `Parse the short-answer or essay question found on ${pageRange} of this PDF.
@@ -81,7 +81,7 @@ Focus only on ${pageRange} and extract the following information:
 
 Note: Short-answer questions do NOT have options and do NOT have a specific answer array.
 
-Return the complete question in the import API format.`;
+Return the complete question in the import API format.`
 
     // Use Gemini to parse the question from PDF
     const { object: question, metrics } = await generateStructured({
@@ -89,21 +89,21 @@ Return the complete question in the import API format.`;
       pdf: payload.pdf,
       schema: ShortAnswerQuestionSchema,
       cacheKey: `short-answer-${payload.crossId}-${payload.position}`,
-    });
+    })
 
     // Log metrics
     const metricsStr = metrics.cacheHit
       ? 'CACHE HIT'
-      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
-    console.log(`[parser-short-answer] Q${payload.position}: ${metricsStr}`);
+      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`
+    console.log(`[parser-short-answer] Q${payload.position}: ${metricsStr}`)
 
-    console.log(`[parser-short-answer] Successfully parsed question ${payload.position}`);
+    console.log(`[parser-short-answer] Successfully parsed question ${payload.position}`)
 
-    return { question, metrics };
+    return { question, metrics }
   } catch (error) {
-    console.error('[parser-short-answer] Error parsing question:', error);
+    console.error('[parser-short-answer] Error parsing question:', error)
     throw new Error(
       `Failed to parse short-answer question: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    )
   }
 }

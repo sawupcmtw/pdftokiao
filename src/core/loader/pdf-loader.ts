@@ -1,7 +1,7 @@
-import { readFile } from 'fs/promises';
-import { access } from 'fs/promises';
-import { constants } from 'fs';
-import pdf from 'pdf-parse';
+import { readFile } from 'fs/promises'
+import { access } from 'fs/promises'
+import { constants } from 'fs'
+import pdf from 'pdf-parse'
 
 /**
  * Custom error class for PDF loader errors
@@ -11,8 +11,8 @@ export class PdfLoaderError extends Error {
     message: string,
     public override readonly cause?: Error
   ) {
-    super(message);
-    this.name = 'PdfLoaderError';
+    super(message)
+    this.name = 'PdfLoaderError'
   }
 }
 
@@ -25,36 +25,36 @@ export class PdfLoaderError extends Error {
 export async function loadPdf(filePath: string): Promise<Buffer> {
   try {
     // Check if file exists and is accessible
-    await access(filePath, constants.F_OK | constants.R_OK);
+    await access(filePath, constants.F_OK | constants.R_OK)
   } catch (error) {
     throw new PdfLoaderError(
       `File not found or not accessible: ${filePath}`,
       error instanceof Error ? error : undefined
-    );
+    )
   }
 
   // Validate file extension
   if (!filePath.toLowerCase().endsWith('.pdf')) {
-    throw new PdfLoaderError(`Invalid file format: Expected .pdf file, got ${filePath}`);
+    throw new PdfLoaderError(`Invalid file format: Expected .pdf file, got ${filePath}`)
   }
 
   try {
-    const buffer = await readFile(filePath);
+    const buffer = await readFile(filePath)
 
     // Validate that it's a valid PDF by checking the magic number
     if (!buffer.toString('utf-8', 0, 5).startsWith('%PDF-')) {
-      throw new PdfLoaderError(`Invalid PDF format: File does not appear to be a valid PDF`);
+      throw new PdfLoaderError(`Invalid PDF format: File does not appear to be a valid PDF`)
     }
 
-    return buffer;
+    return buffer
   } catch (error) {
     if (error instanceof PdfLoaderError) {
-      throw error;
+      throw error
     }
     throw new PdfLoaderError(
       `Failed to load PDF file: ${filePath}`,
       error instanceof Error ? error : undefined
-    );
+    )
   }
 }
 
@@ -81,34 +81,32 @@ export async function extractPages(
 ): Promise<Buffer[]> {
   try {
     // Parse PDF to get metadata
-    const data = await pdf(pdfBuffer);
-    const totalPages = data.numpages;
+    const data = await pdf(pdfBuffer)
+    const totalPages = data.numpages
 
     // Validate page range
     if (pages.length > 2) {
-      throw new PdfLoaderError(
-        `Invalid page range format: Expected [page] or [startPage, endPage]`
-      );
+      throw new PdfLoaderError(`Invalid page range format: Expected [page] or [startPage, endPage]`)
     }
 
-    const startPage = pages[0];
-    const endPage = pages.length === 2 ? pages[1] : pages[0];
+    const startPage = pages[0]
+    const endPage = pages.length === 2 ? pages[1] : pages[0]
 
     // Validate page numbers
     if (startPage < 1 || endPage < 1) {
-      throw new PdfLoaderError(`Invalid page numbers: Page numbers must be >= 1`);
+      throw new PdfLoaderError(`Invalid page numbers: Page numbers must be >= 1`)
     }
 
     if (startPage > totalPages || endPage > totalPages) {
       throw new PdfLoaderError(
         `Invalid page range: PDF has ${totalPages} pages, but requested pages ${startPage}-${endPage}`
-      );
+      )
     }
 
     if (startPage > endPage) {
       throw new PdfLoaderError(
         `Invalid page range: Start page (${startPage}) must be <= end page (${endPage})`
-      );
+      )
     }
 
     // TODO: Implement actual PDF-to-image conversion
@@ -121,7 +119,7 @@ export async function extractPages(
       `PDF-to-image conversion not yet implemented. ` +
         `Please install pdf-to-png-converter or similar package. ` +
         `Requested pages: ${startPage}-${endPage} from ${totalPages} total pages.`
-    );
+    )
 
     // Example implementation with pdf-to-png-converter (when installed):
     /*
@@ -142,12 +140,12 @@ export async function extractPages(
     */
   } catch (error) {
     if (error instanceof PdfLoaderError) {
-      throw error;
+      throw error
     }
     throw new PdfLoaderError(
       `Failed to extract pages from PDF`,
       error instanceof Error ? error : undefined
-    );
+    )
   }
 }
 
@@ -157,34 +155,34 @@ export async function extractPages(
  * @returns Promise with PDF metadata
  */
 export async function getPdfMetadata(pdfBuffer: Buffer): Promise<{
-  numPages: number;
+  numPages: number
   info?: {
-    Title?: string;
-    Author?: string;
-    Subject?: string;
-    Creator?: string;
-    Producer?: string;
-    CreationDate?: Date;
-    ModDate?: Date;
-  };
+    Title?: string
+    Author?: string
+    Subject?: string
+    Creator?: string
+    Producer?: string
+    CreationDate?: Date
+    ModDate?: Date
+  }
 }> {
   try {
-    const data = await pdf(pdfBuffer);
+    const data = await pdf(pdfBuffer)
 
     const result: {
-      numPages: number;
+      numPages: number
       info?: {
-        Title?: string;
-        Author?: string;
-        Subject?: string;
-        Creator?: string;
-        Producer?: string;
-        CreationDate?: Date;
-        ModDate?: Date;
-      };
+        Title?: string
+        Author?: string
+        Subject?: string
+        Creator?: string
+        Producer?: string
+        CreationDate?: Date
+        ModDate?: Date
+      }
     } = {
       numPages: data.numpages,
-    };
+    }
 
     if (data.info) {
       result.info = {
@@ -195,14 +193,14 @@ export async function getPdfMetadata(pdfBuffer: Buffer): Promise<{
         Producer: data.info.Producer,
         CreationDate: data.info.CreationDate,
         ModDate: data.info.ModDate,
-      };
+      }
     }
 
-    return result;
+    return result
   } catch (error) {
     throw new PdfLoaderError(
       `Failed to get PDF metadata`,
       error instanceof Error ? error : undefined
-    );
+    )
   }
 }

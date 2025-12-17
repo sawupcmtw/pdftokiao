@@ -1,5 +1,5 @@
-import { LRUCache } from 'lru-cache';
-import { createHash } from 'crypto';
+import { LRUCache } from 'lru-cache'
+import { createHash } from 'crypto'
 
 /**
  * LRU cache configuration
@@ -7,12 +7,12 @@ import { createHash } from 'crypto';
 const CACHE_CONFIG = {
   max: 100, // Maximum number of entries
   ttl: 3600000, // 1 hour in milliseconds
-};
+}
 
 /**
  * Singleton LRU cache instance for AI responses
  */
-const cache = new LRUCache<string, any>(CACHE_CONFIG);
+const cache = new LRUCache<string, any>(CACHE_CONFIG)
 
 /**
  * Get a cached value by key
@@ -20,7 +20,7 @@ const cache = new LRUCache<string, any>(CACHE_CONFIG);
  * @returns The cached value or undefined if not found
  */
 export function getCached<T>(key: string): T | undefined {
-  return cache.get(key) as T | undefined;
+  return cache.get(key) as T | undefined
 }
 
 /**
@@ -29,7 +29,7 @@ export function getCached<T>(key: string): T | undefined {
  * @param value - The value to cache
  */
 export function setCached<T>(key: string, value: T): void {
-  cache.set(key, value);
+  cache.set(key, value)
 }
 
 /**
@@ -39,19 +39,19 @@ export function setCached<T>(key: string, value: T): void {
  * @returns A SHA-256 hash as the cache key
  */
 export function generateCacheKey(prompt: string, images?: Buffer[]): string {
-  const hash = createHash('sha256');
+  const hash = createHash('sha256')
 
   // Hash the prompt
-  hash.update(prompt);
+  hash.update(prompt)
 
   // Hash each image buffer if provided
   if (images && images.length > 0) {
     images.forEach((image) => {
-      hash.update(image);
-    });
+      hash.update(image)
+    })
   }
 
-  return hash.digest('hex');
+  return hash.digest('hex')
 }
 
 /**
@@ -59,7 +59,7 @@ export function generateCacheKey(prompt: string, images?: Buffer[]): string {
  * Useful for testing or memory management
  */
 export function clearCache(): void {
-  cache.clear();
+  cache.clear()
 }
 
 /**
@@ -71,10 +71,10 @@ export function getCacheStats() {
     size: cache.size,
     max: CACHE_CONFIG.max,
     ttl: CACHE_CONFIG.ttl,
-  };
+  }
 }
 
 /**
  * Export the cache instance for advanced usage
  */
-export { cache };
+export { cache }

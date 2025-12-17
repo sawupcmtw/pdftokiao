@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 /**
  * Schema for ParseInput - validates input for the PDF parsing process
@@ -23,6 +23,6 @@ export const ParseInputSchema = z.object({
 
   /** Import key string (UUID format recommended) */
   importKey: z.string().min(1),
-});
+})
 
-export type ParseInput = z.infer<typeof ParseInputSchema>;
+export type ParseInput = z.infer<typeof ParseInputSchema>

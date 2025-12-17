@@ -1,2 +1,2 @@
 // Type definitions for pdftokiao
-export {};
+export {}

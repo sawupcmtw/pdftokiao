@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 /**
  * Schema for HintTag - describes a hint tag for question type detection
@@ -12,6 +12,6 @@ export const HintTagSchema = z.object({
 
   /** Description of the hint content */
   description: z.string(),
-});
+})
 
-export type HintTag = z.infer<typeof HintTagSchema>;
+export type HintTag = z.infer<typeof HintTagSchema>

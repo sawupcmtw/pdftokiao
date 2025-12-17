@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { generateStructured, type CallMetrics } from '../core/ai/gemini-client.js';
-import { PageMapSchema } from '../core/schemas/index.js';
+import { z } from 'zod'
+import { generateStructured, type CallMetrics } from '../core/ai/gemini-client.js'
+import { PageMapSchema } from '../core/schemas/index.js'
 
 /**
  * Input schema for page analyzer
@@ -22,9 +22,9 @@ const PageAnalyzerInputSchema = z.object({
       description: z.string(),
     })
   ),
-});
+})
 
-export type PageAnalyzerInput = z.infer<typeof PageAnalyzerInputSchema>;
+export type PageAnalyzerInput = z.infer<typeof PageAnalyzerInputSchema>
 
 /**
  * Output schema for page analyzer
@@ -32,14 +32,14 @@ export type PageAnalyzerInput = z.infer<typeof PageAnalyzerInputSchema>;
 const PageAnalyzerOutputSchema = z.object({
   /** Array of page maps showing what's included on each page */
   pageMaps: z.array(PageMapSchema),
-});
+})
 
-export type PageAnalyzerOutput = z.infer<typeof PageAnalyzerOutputSchema>;
+export type PageAnalyzerOutput = z.infer<typeof PageAnalyzerOutputSchema>
 
 /** Output with metrics for aggregation */
 export interface PageAnalyzerResult {
-  output: PageAnalyzerOutput;
-  metrics: CallMetrics;
+  output: PageAnalyzerOutput
+  metrics: CallMetrics
 }
 
 /**
@@ -50,13 +50,13 @@ export interface PageAnalyzerResult {
  * then maps each page to the questions it contains.
  */
 export async function analyzePages(payload: PageAnalyzerInput): Promise<PageAnalyzerResult> {
-  const startPage = payload.pages[0];
-  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
+  const startPage = payload.pages[0]
+  const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0]
 
   try {
     console.log(
       `[page-analyzer] Analyzing pages ${startPage}-${endPage} with ${payload.hintTags.length} hints...`
-    );
+    )
 
     // Create a summary of hint tags for context
     const hintsSummary =
@@ -64,7 +64,7 @@ export async function analyzePages(payload: PageAnalyzerInput): Promise<PageAnal
         ? payload.hintTags
             .map((tag) => `- Hint ${tag.imageIndex + 1}: ${tag.type} - ${tag.description}`)
             .join('\n')
-        : 'No hints provided';
+        : 'No hints provided'
 
     // Prepare prompt for analyzing pages
     const prompt = `Analyze pages ${startPage} to ${endPage} of this PDF and map each page to the questions it contains.
@@ -84,7 +84,7 @@ Guidelines:
 - Use the hints to help identify question types
 - Only analyze pages ${startPage} through ${endPage}
 
-Return a page map for each page showing what's included.`;
+Return a page map for each page showing what's included.`
 
     // Analyze PDF directly
     const { object: result, metrics } = await generateStructured({
@@ -94,29 +94,29 @@ Return a page map for each page showing what's included.`;
         pageMaps: z.array(PageMapSchema),
       }),
       cacheKey: `page-analysis-${startPage}-${endPage}`,
-    });
+    })
 
     // Log metrics
     const metricsStr = metrics.cacheHit
       ? 'CACHE HIT'
-      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
-    console.log(`[page-analyzer] Pages ${startPage}-${endPage}: ${metricsStr}`);
+      : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`
+    console.log(`[page-analyzer] Pages ${startPage}-${endPage}: ${metricsStr}`)
 
-    console.log(`[page-analyzer] Generated ${result.pageMaps.length} page maps`);
+    console.log(`[page-analyzer] Generated ${result.pageMaps.length} page maps`)
 
     // Log details for debugging
     result.pageMaps.forEach((pageMap) => {
       const items = pageMap.included
         .map((item) => `${item.type}${item.crossId ? ` (${item.crossId})` : ''}`)
-        .join(', ');
-      console.log(`[page-analyzer] Page ${pageMap.page}: ${items}`);
-    });
+        .join(', ')
+      console.log(`[page-analyzer] Page ${pageMap.page}: ${items}`)
+    })
 
-    return { output: { pageMaps: result.pageMaps }, metrics };
+    return { output: { pageMaps: result.pageMaps }, metrics }
   } catch (error) {
-    console.error('[page-analyzer] Error analyzing pages:', error);
+    console.error('[page-analyzer] Error analyzing pages:', error)
     throw new Error(
       `Failed to analyze PDF pages: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    )
   }
 }
