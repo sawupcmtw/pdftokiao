@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 /**
  * Schema for ParseInput - validates input for the PDF parsing process
+ * Note: materialId and importKey are handled separately by CLI
  */
 export const ParseInputSchema = z.object({
   /** PDF file as a Buffer */
@@ -17,12 +18,6 @@ export const ParseInputSchema = z.object({
 
   /** Optional instruction string for parsing guidance */
   instruction: z.string().optional(),
-
-  /** Material ID number */
-  materialId: z.number().int().positive(),
-
-  /** Import key string (UUID format recommended) */
-  importKey: z.string().min(1),
 })
 
 export type ParseInput = z.infer<typeof ParseInputSchema>

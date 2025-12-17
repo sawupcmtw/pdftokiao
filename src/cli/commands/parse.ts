@@ -49,8 +49,6 @@ export function createParseCommand(): Command {
     .description('Parse PDF material and convert to Kiao import format')
     .requiredOption('-p, --pdf <path>', 'PDF file path')
     .requiredOption('--pages <range>', 'Page range (e.g., "1" or "1,3")')
-    .requiredOption('--material-id <id>', 'Material ID')
-    .requiredOption('--import-key <key>', 'Import key')
     .option('-h, --hints <paths...>', 'Hint image file paths')
     .option('-i, --instruction <text>', 'Additional parsing instructions')
     .option('-o, --output <dir>', 'Output directory for JSON files', './output')
@@ -63,12 +61,6 @@ export function createParseCommand(): Command {
 
         const pdfPath = resolve(options.pdf)
         const outputDir = resolve(options.output)
-        const materialId = parseInt(options.materialId, 10)
-        const importKey = options.importKey
-
-        if (isNaN(materialId) || materialId < 1) {
-          throw new Error('Material ID must be a positive integer')
-        }
 
         // Parse page range
         const pages = parsePageRange(options.pages)
@@ -112,8 +104,6 @@ export function createParseCommand(): Command {
           pages,
           hints: hintBuffers,
           instruction: options.instruction,
-          materialId,
-          importKey,
         })
         console.log('  Input validated successfully')
 
@@ -127,8 +117,6 @@ export function createParseCommand(): Command {
           pages,
           hintPaths,
           instruction: options.instruction,
-          materialId,
-          importKey,
         })
 
         // 6. Create output directory
@@ -136,7 +124,7 @@ export function createParseCommand(): Command {
         await mkdir(outputDir, { recursive: true })
 
         // 7. Write output JSON file
-        const outputFileName = `parse_output_${importKey}_${Date.now()}.json`
+        const outputFileName = `parse_output_${Date.now()}.json`
         const outputPath = join(outputDir, outputFileName)
 
         console.log(`Writing output to: ${outputPath}`)

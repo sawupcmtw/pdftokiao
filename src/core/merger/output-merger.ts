@@ -3,13 +3,10 @@ import { QuestionGroupSchema } from '../schemas/index.js'
 
 /**
  * Configuration for merging parser results
+ * Note: material_id and import_key are no longer part of the output - they are added by CLI if needed
  */
 export interface MergeConfig {
-  /** Material ID to assign to the question group */
-  materialId: number
-
-  /** Import key (UUID format recommended) */
-  importKey: string
+  // Reserved for future configuration options
 }
 
 /**
@@ -88,7 +85,6 @@ function assignPositions(questions: Question[], startPosition: number): Question
  * Merges multiple parser results into a single QuestionGroup
  *
  * @param results - Array of parser results to merge
- * @param config - Configuration including material_id and import_key
  * @returns A validated QuestionGroup object
  *
  * @throws Error if validation fails or if there are conflicting group-level attributes
@@ -108,24 +104,13 @@ function assignPositions(questions: Question[], startPosition: number): Question
  *   }
  * ];
  *
- * const questionGroup = mergeQuestionGroups(results, {
- *   materialId: 12345,
- *   importKey: 'uuid-1234-5678'
- * });
+ * const questionGroup = mergeQuestionGroups(results);
  * ```
  */
-export function mergeQuestionGroups(results: ParserResult[], config: MergeConfig): QuestionGroup {
+export function mergeQuestionGroups(results: ParserResult[], _config?: MergeConfig): QuestionGroup {
   // Validate inputs
   if (!results || results.length === 0) {
     throw new Error('Cannot merge empty results array')
-  }
-
-  if (!config.materialId || config.materialId <= 0) {
-    throw new Error('Invalid materialId: must be a positive integer')
-  }
-
-  if (!config.importKey || config.importKey.trim().length === 0) {
-    throw new Error('Invalid importKey: must be a non-empty string')
   }
 
   // Validate each parser result
@@ -170,8 +155,6 @@ export function mergeQuestionGroups(results: ParserResult[], config: MergeConfig
     data: {
       type: 'question_group',
       attributes: {
-        material_id: config.materialId,
-        import_key: config.importKey,
         ...(groupText && { text: groupText }),
       },
       questions: allQuestions,
