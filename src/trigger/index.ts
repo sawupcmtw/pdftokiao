@@ -14,10 +14,13 @@ export {
   parseMultiSelect,
   parseFillIn,
   parseShortAnswer,
+  parseEMISingleSelect,
+  parseDeck,
 } from './parsers/index.js'
 
-// Orchestrator function
+// Orchestrator functions
 export { orchestrate, type OrchestratorInput } from './orchestrator.task.js'
+export { orchestrateDeck, type DeckOrchestratorInput } from './deck-orchestrator.task.js'
 
 // Answer enricher function
 export {
