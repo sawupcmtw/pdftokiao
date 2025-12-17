@@ -21,6 +21,7 @@ export interface UsageMetrics {
   outputTokens: number;
   totalTokens: number;
   cachedInputTokens?: number;
+  cost: number;
 }
 
 // Call metrics including timing and cache info
@@ -166,7 +167,7 @@ export async function generateStructured<T extends z.ZodType>(
       return {
         object: validatedObject,
         metrics: {
-          usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+          usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, cost: 0 },
           latencyMs: Date.now() - startTime,
           cacheHit: true,
           retryAttempts: 0,
@@ -245,6 +246,7 @@ export async function generateStructured<T extends z.ZodType>(
             inputTokens,
             outputTokens,
             totalTokens,
+            cost: 0, // Cost calculation not implemented
           },
           latencyMs: Date.now() - startTime,
           cacheHit: false,
