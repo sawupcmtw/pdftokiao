@@ -31,7 +31,7 @@ node dist/cli/index.js parse --pdf file.pdf --pages 1-5 --hints hint1.png
 The PDF parsing pipeline (defined in `src/trigger/orchestrator.task.ts`) follows this sequence:
 
 1. **Load files** - PDF and hint images via loaders (`src/core/loader/`)
-2. **Tag hints** - `tagHints()` analyzes hint images to detect question types (single_select, multi_select, fill_in, short_answer)
+2. **Tag hints** - `tagHints()` analyzes hint images to detect question types (single_select, multi_select, fill_in, short_answer, emi_single_select, deck)
 3. **Analyze pages** - `analyzePages()` maps PDF pages to questions using hint context
 4. **Parse questions** - Type-specific parsers extract question data in parallel
 5. **Enrich answers** - `enrichAnswers()` extracts answers/explanations from SUPP PDFs
@@ -53,8 +53,10 @@ All AI calls go through `src/core/ai/gemini-client.ts`:
 All data structures use Zod schemas (`src/core/schemas/`):
 
 - `QuestionGroup` - Final output format for Kiao import API
-- Question types: `SingleSelectQuestion`, `MultiSelectQuestion`, `FillInQuestion`, `ShortAnswerQuestion`
+- Question types: `SingleSelectQuestion`, `MultiSelectQuestion`, `FillInQuestion`, `ShortAnswerQuestion`, `EMISingleSelectQuestion`
+- `Deck` - Vocabulary flashcard format with `Card` items
 - Each question has `attributes`, optional `explanation`, and `options` (for select types)
+- EMI questions share options at the QuestionGroup level
 
 ### Test Files Structure
 
@@ -84,7 +86,7 @@ SUPP files provide answer keys, explanations, and vocabulary notes to enrich par
 | `SUPP-type-TYPE.pdf`       | `SUPP-type-fill_in.pdf`     | Question type scope      |
 | `SUPP-questions-X,Y,Z.pdf` | `SUPP-questions-1,5,10.pdf` | Specific questions       |
 
-**Supported Types:** `single_select`, `multi_select`, `fill_in`, `short_answer`
+**Supported Types:** `single_select`, `multi_select`, `fill_in`, `short_answer`, `emi_single_select`
 
 **Enrichment Fields:**
 
@@ -92,3 +94,22 @@ SUPP files provide answer keys, explanations, and vocabulary notes to enrich par
 - `explanation.note` - Detailed explanation
 - `explanation.translation` - Translation (for language questions)
 - `explanation.vocabs_note` - Vocabulary notes
+
+### Deck Pipeline
+
+For vocabulary/flashcard content, use the separate deck pipeline (`src/trigger/deck-orchestrator.task.ts`):
+
+1. **Load PDF** - PDF file via loader
+2. **Parse vocabulary** - `parseDeck()` extracts vocabulary cards with definitions, examples, synonyms
+3. **Build deck** - Results compiled into `Deck` JSON matching the Kiao import API format
+
+**Deck Card Structure:**
+
+- `word` - The vocabulary word
+- `text_content.explanations[]` - Array of definitions with:
+  - `translations` - Word meanings
+  - `sentences` - Example sentences
+  - `synonyms`, `antonyms`, `similars` - Related words
+  - `word_types` - Part of speech (n, v, adj, adv, etc.)
+
+**Allowed Word Types:** `n`, `n[C]`, `n[U]`, `adj`, `v`, `vi`, `vt`, `adv`, `prep`, `phrase`, `conj`, `aux`, `int`, `pron`, `det`, `art`, `abbr`
