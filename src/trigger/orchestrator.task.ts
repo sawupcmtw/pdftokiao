@@ -1,6 +1,12 @@
 import { z } from 'zod'
 import { loadPdf, loadImages } from '../core/loader/index.js'
-import type { QuestionGroup, Question, SupplementaryPdf } from '../core/schemas/index.js'
+import type {
+  QuestionGroup,
+  Question,
+  SupplementaryPdf,
+  Option,
+  Explanation,
+} from '../core/schemas/index.js'
 import type { CallMetrics } from '../core/ai/gemini-client.js'
 import { tagHints } from './hint-tagger.task.js'
 import { analyzePages } from './page-analyzer.task.js'
@@ -9,6 +15,8 @@ import {
   parseMultiSelect,
   parseFillIn,
   parseShortAnswer,
+  parseEMISingleSelect,
+  type EMISingleSelectParserResult,
 } from './parsers/index.js'
 import { enrichAnswers } from './answer-enricher.task.js'
 
@@ -190,7 +198,16 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
     console.log('[orchestrator] Step 5: Parsing questions...')
 
     const parsePromises: Promise<{ question: Question; metrics: CallMetrics }>[] = []
+    const emiParsePromises: Promise<{
+      result: EMISingleSelectParserResult
+      crossId: string
+    }>[] = []
     let position = 1
+
+    // Track EMI group-level data
+    let emiGroupText: string | null = null
+    let emiGroupOptions: Option[] = []
+    let emiGroupExplanation: Explanation | undefined = undefined
 
     for (const [crossId, questionInfo] of questionMap.entries()) {
       // Get the page range for this question
@@ -227,6 +244,20 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
         case 'short_answer':
           parsePromise = parseShortAnswer(parserInput)
           break
+        case 'emi_single_select':
+          // EMI needs special handling - parse as a group
+          emiParsePromises.push(
+            parseEMISingleSelect({
+              pdf: pdfBuffer,
+              pages: pageRange,
+              description: questionInfo.description,
+              crossId,
+              startPosition: position,
+              instruction: payload.instruction,
+            }).then((result) => ({ result, crossId }))
+          )
+          // Skip incrementing position here - EMI parser handles positions
+          continue
         default:
           console.warn(`[orchestrator] Unknown question type: ${questionInfo.type}, skipping`)
           continue
@@ -236,7 +267,7 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
       position++
     }
 
-    // Wait for all parsers to complete
+    // Wait for all regular parsers to complete
     const parseResults = await Promise.all(parsePromises)
 
     // Extract questions and collect metrics
@@ -245,6 +276,26 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
       questions.push(result.question)
       addMetrics(pipelineMetrics, result.metrics)
     }
+
+    // Wait for EMI parsers and process their results
+    const emiResults = await Promise.all(emiParsePromises)
+    for (const { result, crossId } of emiResults) {
+      console.log(
+        `[orchestrator] EMI group ${crossId}: ${result.questions.length} questions, ${result.groupOptions.length} shared options`
+      )
+
+      // Add EMI questions to the questions array
+      questions.push(...result.questions)
+      addMetrics(pipelineMetrics, result.metrics)
+
+      // Store group-level EMI data (use first EMI group's data if multiple)
+      if (result.groupOptions.length > 0 && emiGroupOptions.length === 0) {
+        emiGroupText = result.groupText
+        emiGroupOptions = result.groupOptions
+        emiGroupExplanation = result.groupExplanation
+      }
+    }
+
     console.log(`[orchestrator] Parsed ${questions.length} questions`)
 
     // Step 6: Build final QuestionGroup
@@ -256,7 +307,13 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
         attributes: {
           material_id: payload.materialId,
           import_key: payload.importKey,
+          // Include EMI group-level text if present
+          ...(emiGroupText ? { text: emiGroupText } : {}),
         },
+        // Include EMI group-level explanation if present
+        ...(emiGroupExplanation ? { explanation: emiGroupExplanation } : {}),
+        // Include EMI shared options if present
+        ...(emiGroupOptions.length > 0 ? { options: emiGroupOptions } : {}),
         questions,
       },
     }
