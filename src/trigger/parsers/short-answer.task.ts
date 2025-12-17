@@ -1,9 +1,6 @@
 import { z } from 'zod';
 import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js';
-import {
-  ShortAnswerQuestionSchema,
-  type ShortAnswerQuestion,
-} from '../../core/schemas/index.js';
+import { ShortAnswerQuestionSchema, type ShortAnswerQuestion } from '../../core/schemas/index.js';
 
 /**
  * Input schema for short-answer parser
@@ -13,9 +10,9 @@ const ShortAnswerParserInputSchema = z.object({
   pdf: z.instanceof(Buffer),
 
   /** Page range containing this question - [start] or [start, end] */
-  pages: z.tuple([z.number().int().positive()]).or(
-    z.tuple([z.number().int().positive(), z.number().int().positive()])
-  ),
+  pages: z
+    .tuple([z.number().int().positive()])
+    .or(z.tuple([z.number().int().positive(), z.number().int().positive()])),
 
   /** Description from page analyzer */
   description: z.string(),
@@ -48,13 +45,17 @@ export interface ShortAnswerParserResult {
  * - Empty answer array (since there's no single correct answer)
  * - Optional explanations or guidance
  */
-export async function parseShortAnswer(payload: ShortAnswerParserInput): Promise<ShortAnswerParserResult> {
+export async function parseShortAnswer(
+  payload: ShortAnswerParserInput
+): Promise<ShortAnswerParserResult> {
   const startPage = payload.pages[0];
   const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
   const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`;
 
   try {
-    console.log(`[parser-short-answer] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`);
+    console.log(
+      `[parser-short-answer] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`
+    );
 
     // Create prompt for parsing
     const prompt = `Parse the short-answer or essay question found on ${pageRange} of this PDF.
@@ -96,9 +97,7 @@ Return the complete question in the import API format.`;
       : `${metrics.usage.totalTokens} tokens, $${metrics.usage.cost.toFixed(6)}, ${metrics.latencyMs}ms`;
     console.log(`[parser-short-answer] Q${payload.position}: ${metricsStr}`);
 
-    console.log(
-      `[parser-short-answer] Successfully parsed question ${payload.position}`
-    );
+    console.log(`[parser-short-answer] Successfully parsed question ${payload.position}`);
 
     return { question, metrics };
   } catch (error) {

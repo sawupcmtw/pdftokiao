@@ -35,9 +35,7 @@ const HINT_PATTERN = /^IMAGE-.+\.(jpg|jpeg|png)$/i;
  * @param filename - PDF filename like "CONTENT-[1,2].pdf" or "CONTENT-[1].pdf"
  * @returns Parsed pages, or null if invalid format
  */
-export function parsePdfFilename(
-  filename: string
-): { pages: [number] | [number, number] } | null {
+export function parsePdfFilename(filename: string): { pages: [number] | [number, number] } | null {
   const match = filename.match(PDF_PATTERN);
   if (!match) {
     return null;
@@ -202,7 +200,8 @@ export function formatTestCase(testCase: TestCase): string {
       ? `page ${testCase.pages[0]}`
       : `pages ${testCase.pages[0]}-${testCase.pages[1]}`;
 
-  const hintStr = testCase.hintPaths.length > 0 ? `${testCase.hintPaths.length} hint(s)` : 'no hints';
+  const hintStr =
+    testCase.hintPaths.length > 0 ? `${testCase.hintPaths.length} hint(s)` : 'no hints';
 
   const instStr = testCase.instruction ? 'has instruction' : 'no instruction';
 

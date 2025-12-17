@@ -7,7 +7,10 @@ import pdf from 'pdf-parse';
  * Custom error class for PDF loader errors
  */
 export class PdfLoaderError extends Error {
-  constructor(message: string, public override readonly cause?: Error) {
+  constructor(
+    message: string,
+    public override readonly cause?: Error
+  ) {
     super(message);
     this.name = 'PdfLoaderError';
   }
@@ -32,9 +35,7 @@ export async function loadPdf(filePath: string): Promise<Buffer> {
 
   // Validate file extension
   if (!filePath.toLowerCase().endsWith('.pdf')) {
-    throw new PdfLoaderError(
-      `Invalid file format: Expected .pdf file, got ${filePath}`
-    );
+    throw new PdfLoaderError(`Invalid file format: Expected .pdf file, got ${filePath}`);
   }
 
   try {
@@ -42,9 +43,7 @@ export async function loadPdf(filePath: string): Promise<Buffer> {
 
     // Validate that it's a valid PDF by checking the magic number
     if (!buffer.toString('utf-8', 0, 5).startsWith('%PDF-')) {
-      throw new PdfLoaderError(
-        `Invalid PDF format: File does not appear to be a valid PDF`
-      );
+      throw new PdfLoaderError(`Invalid PDF format: File does not appear to be a valid PDF`);
     }
 
     return buffer;
@@ -97,9 +96,7 @@ export async function extractPages(
 
     // Validate page numbers
     if (startPage < 1 || endPage < 1) {
-      throw new PdfLoaderError(
-        `Invalid page numbers: Page numbers must be >= 1`
-      );
+      throw new PdfLoaderError(`Invalid page numbers: Page numbers must be >= 1`);
     }
 
     if (startPage > totalPages || endPage > totalPages) {
@@ -122,8 +119,8 @@ export async function extractPages(
     // In production, this should convert each page to a PNG/JPEG image
     throw new PdfLoaderError(
       `PDF-to-image conversion not yet implemented. ` +
-      `Please install pdf-to-png-converter or similar package. ` +
-      `Requested pages: ${startPage}-${endPage} from ${totalPages} total pages.`
+        `Please install pdf-to-png-converter or similar package. ` +
+        `Requested pages: ${startPage}-${endPage} from ${totalPages} total pages.`
     );
 
     // Example implementation with pdf-to-png-converter (when installed):

@@ -1,9 +1,6 @@
 import { z } from 'zod';
 import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js';
-import {
-  FillInQuestionSchema,
-  type FillInQuestion,
-} from '../../core/schemas/index.js';
+import { FillInQuestionSchema, type FillInQuestion } from '../../core/schemas/index.js';
 
 /**
  * Input schema for fill-in parser
@@ -13,9 +10,9 @@ const FillInParserInputSchema = z.object({
   pdf: z.instanceof(Buffer),
 
   /** Page range containing this question - [start] or [start, end] */
-  pages: z.tuple([z.number().int().positive()]).or(
-    z.tuple([z.number().int().positive(), z.number().int().positive()])
-  ),
+  pages: z
+    .tuple([z.number().int().positive()])
+    .or(z.tuple([z.number().int().positive(), z.number().int().positive()])),
 
   /** Description from page analyzer */
   description: z.string(),
@@ -55,7 +52,9 @@ export async function parseFillIn(payload: FillInParserInput): Promise<FillInPar
   const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`;
 
   try {
-    console.log(`[parser-fill-in] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`);
+    console.log(
+      `[parser-fill-in] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`
+    );
 
     // Create prompt for parsing
     const prompt = `Parse the fill-in-the-blank question found on ${pageRange} of this PDF.
@@ -102,7 +101,7 @@ Return the complete question in the import API format.`;
 
     console.log(
       `[parser-fill-in] Successfully parsed question ${payload.position} ` +
-      `with ${question.attributes.answer.length} blank(s)`
+        `with ${question.attributes.answer.length} blank(s)`
     );
 
     return { question, metrics };

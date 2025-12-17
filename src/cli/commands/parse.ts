@@ -9,7 +9,7 @@ import { orchestrate } from '../../trigger/index.js';
  * Parse page range string (e.g., "1" or "1,3") into tuple
  */
 function parsePageRange(rangeStr: string): [number] | [number, number] {
-  const parts = rangeStr.split(',').map(s => parseInt(s.trim(), 10));
+  const parts = rangeStr.split(',').map((s) => parseInt(s.trim(), 10));
 
   if (parts.length === 1) {
     const page = parts[0];
@@ -20,7 +20,14 @@ function parsePageRange(rangeStr: string): [number] | [number, number] {
   } else if (parts.length === 2) {
     const startPage = parts[0];
     const endPage = parts[1];
-    if (startPage === undefined || endPage === undefined || isNaN(startPage) || isNaN(endPage) || startPage < 1 || endPage < 1) {
+    if (
+      startPage === undefined ||
+      endPage === undefined ||
+      isNaN(startPage) ||
+      isNaN(endPage) ||
+      startPage < 1 ||
+      endPage < 1
+    ) {
       throw new Error('Invalid page range. Both pages must be positive integers.');
     }
     if (startPage > endPage) {
@@ -133,16 +140,11 @@ export function createParseCommand(): Command {
         const outputPath = join(outputDir, outputFileName);
 
         console.log(`Writing output to: ${outputPath}`);
-        await writeFile(
-          outputPath,
-          JSON.stringify(output, null, 2),
-          'utf-8'
-        );
+        await writeFile(outputPath, JSON.stringify(output, null, 2), 'utf-8');
 
         // 8. Success message
         console.log('\n=== Success ===');
         console.log(`Output written to: ${outputPath}`);
-
       } catch (error) {
         console.error('\n=== Error ===');
         if (error instanceof Error) {

@@ -62,7 +62,7 @@ export interface GenerateOptions<T extends z.ZodType> {
 export class GeminiError extends Error {
   constructor(
     message: string,
-    public override readonly cause?: unknown,
+    public override readonly cause?: unknown
   ) {
     super(message);
     this.name = 'GeminiError';
@@ -75,10 +75,7 @@ export class GeminiError extends Error {
  * @param mimeType - The MIME type of the image (defaults to image/png)
  * @returns A data URL string
  */
-function bufferToDataUrl(
-  imageBuffer: Buffer,
-  mimeType: string = 'image/png',
-): string {
+function bufferToDataUrl(imageBuffer: Buffer, mimeType: string = 'image/png'): string {
   const base64 = imageBuffer.toString('base64');
   return `data:${mimeType};base64,${base64}`;
 }
@@ -110,7 +107,9 @@ function formatApiError(error: unknown): string {
         .filter((line: string) => line.trim().startsWith('*'))
         .map((line: string) => {
           const match = line.match(/properties\[([^\]]+)\]/g);
-          return match ? match.map(m => m.replace(/properties\["|"\]/g, '')).join('.') : line.trim();
+          return match
+            ? match.map((m) => m.replace(/properties\["|"\]/g, '')).join('.')
+            : line.trim();
         });
 
       if (paths.length > 0) {
@@ -136,7 +135,7 @@ function formatApiError(error: unknown): string {
  * @throws GeminiError if generation fails after all retries
  */
 export async function generateStructured<T extends z.ZodType>(
-  options: GenerateOptions<T>,
+  options: GenerateOptions<T>
 ): Promise<GenerateResult<z.infer<T>>> {
   const startTime = Date.now();
   const {
@@ -151,11 +150,7 @@ export async function generateStructured<T extends z.ZodType>(
   } = options;
 
   // Collect all buffers for cache key generation
-  const allBuffers = [
-    ...images,
-    ...(pdf ? [pdf] : []),
-    ...files.map(f => f.buffer),
-  ];
+  const allBuffers = [...images, ...(pdf ? [pdf] : []), ...files.map((f) => f.buffer)];
 
   // Generate cache key if not provided
   const effectiveCacheKey =
@@ -189,9 +184,7 @@ export async function generateStructured<T extends z.ZodType>(
     | { type: 'image'; image: string }
     | { type: 'file'; data: string; mimeType: string };
 
-  const content: ContentPart[] = [
-    { type: 'text', text: prompt },
-  ];
+  const content: ContentPart[] = [{ type: 'text', text: prompt }];
 
   // Add images
   for (const buffer of images) {
@@ -270,9 +263,7 @@ export async function generateStructured<T extends z.ZodType>(
       const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
 
       // Log retry attempt (in production, use proper logger)
-      console.warn(
-        `Gemini API failed (${attempt + 1}/${MAX_RETRIES}): ${formatApiError(error)}`,
-      );
+      console.warn(`Gemini API failed (${attempt + 1}/${MAX_RETRIES}): ${formatApiError(error)}`);
 
       // Wait before retrying
       await sleep(delay);
@@ -282,7 +273,7 @@ export async function generateStructured<T extends z.ZodType>(
   // If we get here, all retries failed
   throw new GeminiError(
     `Failed to generate structured output after ${MAX_RETRIES} attempts`,
-    lastError,
+    lastError
   );
 }
 

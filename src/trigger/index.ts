@@ -2,7 +2,11 @@
 
 // Agent functions
 export { tagHints, type HintTaggerInput, type HintTaggerOutput } from './hint-tagger.task.js';
-export { analyzePages, type PageAnalyzerInput, type PageAnalyzerOutput } from './page-analyzer.task.js';
+export {
+  analyzePages,
+  type PageAnalyzerInput,
+  type PageAnalyzerOutput,
+} from './page-analyzer.task.js';
 
 // Parser functions
 export {

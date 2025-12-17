@@ -10,9 +10,9 @@ const PageAnalyzerInputSchema = z.object({
   pdf: z.instanceof(Buffer),
 
   /** Page range to analyze - [start] or [start, end] */
-  pages: z.tuple([z.number().int().positive()]).or(
-    z.tuple([z.number().int().positive(), z.number().int().positive()])
-  ),
+  pages: z
+    .tuple([z.number().int().positive()])
+    .or(z.tuple([z.number().int().positive(), z.number().int().positive()])),
 
   /** Hint tags from the hint tagger */
   hintTags: z.array(
@@ -54,14 +54,17 @@ export async function analyzePages(payload: PageAnalyzerInput): Promise<PageAnal
   const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
 
   try {
-    console.log(`[page-analyzer] Analyzing pages ${startPage}-${endPage} with ${payload.hintTags.length} hints...`);
+    console.log(
+      `[page-analyzer] Analyzing pages ${startPage}-${endPage} with ${payload.hintTags.length} hints...`
+    );
 
     // Create a summary of hint tags for context
-    const hintsSummary = payload.hintTags.length > 0
-      ? payload.hintTags
-          .map((tag) => `- Hint ${tag.imageIndex + 1}: ${tag.type} - ${tag.description}`)
-          .join('\n')
-      : 'No hints provided';
+    const hintsSummary =
+      payload.hintTags.length > 0
+        ? payload.hintTags
+            .map((tag) => `- Hint ${tag.imageIndex + 1}: ${tag.type} - ${tag.description}`)
+            .join('\n')
+        : 'No hints provided';
 
     // Prepare prompt for analyzing pages
     const prompt = `Analyze pages ${startPage} to ${endPage} of this PDF and map each page to the questions it contains.
@@ -103,9 +106,9 @@ Return a page map for each page showing what's included.`;
 
     // Log details for debugging
     result.pageMaps.forEach((pageMap) => {
-      const items = pageMap.included.map((item) =>
-        `${item.type}${item.crossId ? ` (${item.crossId})` : ''}`
-      ).join(', ');
+      const items = pageMap.included
+        .map((item) => `${item.type}${item.crossId ? ` (${item.crossId})` : ''}`)
+        .join(', ');
       console.log(`[page-analyzer] Page ${pageMap.page}: ${items}`);
     });
 

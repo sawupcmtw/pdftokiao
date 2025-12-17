@@ -6,7 +6,10 @@ import { extname } from 'path';
  * Custom error class for image loader errors
  */
 export class ImageLoaderError extends Error {
-  constructor(message: string, public override readonly cause?: Error) {
+  constructor(
+    message: string,
+    public override readonly cause?: Error
+  ) {
     super(message);
     this.name = 'ImageLoaderError';
   }
@@ -16,7 +19,7 @@ export class ImageLoaderError extends Error {
  * Supported image formats
  */
 const SUPPORTED_FORMATS = ['.png', '.jpg', '.jpeg', '.webp'] as const;
-type SupportedFormat = typeof SUPPORTED_FORMATS[number];
+type SupportedFormat = (typeof SUPPORTED_FORMATS)[number];
 
 /**
  * Check if file extension is a supported image format
@@ -39,25 +42,25 @@ function validateImageBuffer(buffer: Buffer, filePath: string): void {
   const magicBytes = buffer.slice(0, 12);
 
   // PNG: 89 50 4E 47 0D 0A 1A 0A
-  const isPng = magicBytes[0] === 0x89 &&
-                magicBytes[1] === 0x50 &&
-                magicBytes[2] === 0x4e &&
-                magicBytes[3] === 0x47;
+  const isPng =
+    magicBytes[0] === 0x89 &&
+    magicBytes[1] === 0x50 &&
+    magicBytes[2] === 0x4e &&
+    magicBytes[3] === 0x47;
 
   // JPEG: FF D8 FF
-  const isJpeg = magicBytes[0] === 0xff &&
-                 magicBytes[1] === 0xd8 &&
-                 magicBytes[2] === 0xff;
+  const isJpeg = magicBytes[0] === 0xff && magicBytes[1] === 0xd8 && magicBytes[2] === 0xff;
 
   // WebP: 52 49 46 46 ... 57 45 42 50
-  const isWebp = magicBytes[0] === 0x52 &&
-                 magicBytes[1] === 0x49 &&
-                 magicBytes[2] === 0x46 &&
-                 magicBytes[3] === 0x46 &&
-                 magicBytes[8] === 0x57 &&
-                 magicBytes[9] === 0x45 &&
-                 magicBytes[10] === 0x42 &&
-                 magicBytes[11] === 0x50;
+  const isWebp =
+    magicBytes[0] === 0x52 &&
+    magicBytes[1] === 0x49 &&
+    magicBytes[2] === 0x46 &&
+    magicBytes[3] === 0x46 &&
+    magicBytes[8] === 0x57 &&
+    magicBytes[9] === 0x45 &&
+    magicBytes[10] === 0x42 &&
+    magicBytes[11] === 0x50;
 
   if (!isPng && !isJpeg && !isWebp) {
     const ext = extname(filePath).toLowerCase();
@@ -167,27 +170,29 @@ export function getImageMetadata(buffer: Buffer): {
   let format: 'png' | 'jpeg' | 'webp' | 'unknown' = 'unknown';
 
   // PNG: 89 50 4E 47 0D 0A 1A 0A
-  if (magicBytes[0] === 0x89 &&
-      magicBytes[1] === 0x50 &&
-      magicBytes[2] === 0x4e &&
-      magicBytes[3] === 0x47) {
+  if (
+    magicBytes[0] === 0x89 &&
+    magicBytes[1] === 0x50 &&
+    magicBytes[2] === 0x4e &&
+    magicBytes[3] === 0x47
+  ) {
     format = 'png';
   }
   // JPEG: FF D8 FF
-  else if (magicBytes[0] === 0xff &&
-           magicBytes[1] === 0xd8 &&
-           magicBytes[2] === 0xff) {
+  else if (magicBytes[0] === 0xff && magicBytes[1] === 0xd8 && magicBytes[2] === 0xff) {
     format = 'jpeg';
   }
   // WebP: 52 49 46 46 ... 57 45 42 50
-  else if (magicBytes[0] === 0x52 &&
-           magicBytes[1] === 0x49 &&
-           magicBytes[2] === 0x46 &&
-           magicBytes[3] === 0x46 &&
-           magicBytes[8] === 0x57 &&
-           magicBytes[9] === 0x45 &&
-           magicBytes[10] === 0x42 &&
-           magicBytes[11] === 0x50) {
+  else if (
+    magicBytes[0] === 0x52 &&
+    magicBytes[1] === 0x49 &&
+    magicBytes[2] === 0x46 &&
+    magicBytes[3] === 0x46 &&
+    magicBytes[8] === 0x57 &&
+    magicBytes[9] === 0x45 &&
+    magicBytes[10] === 0x42 &&
+    magicBytes[11] === 0x50
+  ) {
     format = 'webp';
   }
 

@@ -38,10 +38,7 @@ export function setCached<T>(key: string, value: T): void {
  * @param images - Optional array of image buffers
  * @returns A SHA-256 hash as the cache key
  */
-export function generateCacheKey(
-  prompt: string,
-  images?: Buffer[],
-): string {
+export function generateCacheKey(prompt: string, images?: Buffer[]): string {
   const hash = createHash('sha256');
 
   // Hash the prompt

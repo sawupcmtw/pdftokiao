@@ -1,9 +1,4 @@
-import type {
-  QuestionGroup,
-  Question,
-  Option,
-  Explanation,
-} from '../schemas/index.js';
+import type { QuestionGroup, Question, Option, Explanation } from '../schemas/index.js';
 import { QuestionGroupSchema } from '../schemas/index.js';
 
 /**
@@ -77,13 +72,16 @@ function validateEMIResult(result: ParserResult): void {
  * Assigns sequential positions to questions starting from the given position
  */
 function assignPositions(questions: Question[], startPosition: number): Question[] {
-  return questions.map((question, index) => ({
-    ...question,
-    attributes: {
-      ...question.attributes,
-      position: startPosition + index,
-    },
-  } as Question));
+  return questions.map(
+    (question, index) =>
+      ({
+        ...question,
+        attributes: {
+          ...question.attributes,
+          position: startPosition + index,
+        },
+      }) as Question
+  );
 }
 
 /**
@@ -116,10 +114,7 @@ function assignPositions(questions: Question[], startPosition: number): Question
  * });
  * ```
  */
-export function mergeQuestionGroups(
-  results: ParserResult[],
-  config: MergeConfig
-): QuestionGroup {
+export function mergeQuestionGroups(results: ParserResult[], config: MergeConfig): QuestionGroup {
   // Validate inputs
   if (!results || results.length === 0) {
     throw new Error('Cannot merge empty results array');
@@ -140,17 +135,17 @@ export function mergeQuestionGroups(
   }
 
   // Check for conflicting group-level attributes
-  const hasMultipleEMI = results.filter(r => r.type === 'emi_single_select').length > 1;
+  const hasMultipleEMI = results.filter((r) => r.type === 'emi_single_select').length > 1;
 
   if (hasMultipleEMI) {
     throw new Error(
       'Cannot merge multiple EMI results with different group-level attributes. ' +
-      'EMI questions must be in a single parser result.'
+        'EMI questions must be in a single parser result.'
     );
   }
 
   // Collect group-level attributes from EMI result (if present)
-  const emiResult = results.find(r => r.type === 'emi_single_select');
+  const emiResult = results.find((r) => r.type === 'emi_single_select');
   const groupOptions = emiResult?.groupOptions;
   const groupExplanation = emiResult?.groupExplanation;
   const groupText = emiResult?.groupText;

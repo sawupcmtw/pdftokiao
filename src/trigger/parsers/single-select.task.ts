@@ -1,9 +1,6 @@
 import { z } from 'zod';
 import { generateStructured, type CallMetrics } from '../../core/ai/gemini-client.js';
-import {
-  SingleSelectQuestionSchema,
-  type SingleSelectQuestion,
-} from '../../core/schemas/index.js';
+import { SingleSelectQuestionSchema, type SingleSelectQuestion } from '../../core/schemas/index.js';
 
 /**
  * Input schema for single-select parser
@@ -13,9 +10,9 @@ const SingleSelectParserInputSchema = z.object({
   pdf: z.instanceof(Buffer),
 
   /** Page range containing this question - [start] or [start, end] */
-  pages: z.tuple([z.number().int().positive()]).or(
-    z.tuple([z.number().int().positive(), z.number().int().positive()])
-  ),
+  pages: z
+    .tuple([z.number().int().positive()])
+    .or(z.tuple([z.number().int().positive(), z.number().int().positive()])),
 
   /** Description from page analyzer */
   description: z.string(),
@@ -48,13 +45,17 @@ export interface SingleSelectParserResult {
  * - Correct answer
  * - Optional explanations for question and options
  */
-export async function parseSingleSelect(payload: SingleSelectParserInput): Promise<SingleSelectParserResult> {
+export async function parseSingleSelect(
+  payload: SingleSelectParserInput
+): Promise<SingleSelectParserResult> {
   const startPage = payload.pages[0];
   const endPage = payload.pages.length === 2 ? payload.pages[1] : payload.pages[0];
   const pageRange = startPage === endPage ? `page ${startPage}` : `pages ${startPage}-${endPage}`;
 
   try {
-    console.log(`[parser-single-select] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`);
+    console.log(
+      `[parser-single-select] Parsing question at position ${payload.position} (crossId: ${payload.crossId}) on ${pageRange}...`
+    );
 
     // Create prompt for parsing
     const prompt = `Parse the single-select (multiple choice) question found on ${pageRange} of this PDF.
@@ -105,7 +106,7 @@ Return the complete question in the import API format.`;
 
     console.log(
       `[parser-single-select] Successfully parsed question ${payload.position} ` +
-      `with ${question.options.length} options`
+        `with ${question.options.length} options`
     );
 
     return { question, metrics };

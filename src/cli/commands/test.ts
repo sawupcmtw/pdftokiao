@@ -76,7 +76,9 @@ export function createTestCommand(): Command {
         }
         console.log(`Instruction: ${testCase.instruction ? 'Yes' : 'No'}`);
         if (testCase.instruction) {
-          console.log(`  "${testCase.instruction.substring(0, 100)}${testCase.instruction.length > 100 ? '...' : ''}"`);
+          console.log(
+            `  "${testCase.instruction.substring(0, 100)}${testCase.instruction.length > 100 ? '...' : ''}"`
+          );
         }
 
         // Run mode

@@ -8,9 +8,9 @@ export const ParseInputSchema = z.object({
   pdf: z.instanceof(Buffer),
 
   /** Page range to parse - either a single page [n] or a range [start, end] */
-  pages: z.tuple([z.number().int().positive()]).or(
-    z.tuple([z.number().int().positive(), z.number().int().positive()])
-  ),
+  pages: z
+    .tuple([z.number().int().positive()])
+    .or(z.tuple([z.number().int().positive(), z.number().int().positive()])),
 
   /** Array of hint images as Buffers */
   hints: z.array(z.instanceof(Buffer)),

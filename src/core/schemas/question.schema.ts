@@ -187,7 +187,9 @@ export type SingleSelectQuestionAttributes = z.infer<typeof SingleSelectQuestion
 export type MultiSelectQuestionAttributes = z.infer<typeof MultiSelectQuestionAttributesSchema>;
 export type FillInQuestionAttributes = z.infer<typeof FillInQuestionAttributesSchema>;
 export type ShortAnswerQuestionAttributes = z.infer<typeof ShortAnswerQuestionAttributesSchema>;
-export type EMISingleSelectQuestionAttributes = z.infer<typeof EMISingleSelectQuestionAttributesSchema>;
+export type EMISingleSelectQuestionAttributes = z.infer<
+  typeof EMISingleSelectQuestionAttributesSchema
+>;
 export type SingleSelectQuestion = z.infer<typeof SingleSelectQuestionSchema>;
 export type MultiSelectQuestion = z.infer<typeof MultiSelectQuestionSchema>;
 export type FillInQuestion = z.infer<typeof FillInQuestionSchema>;

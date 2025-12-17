@@ -50,7 +50,9 @@ function addMetrics(acc: PipelineMetrics, metrics: CallMetrics): void {
 function logMetricsSummary(metrics: PipelineMetrics): void {
   console.log('[orchestrator] ====== Pipeline Metrics ======');
   console.log(`[orchestrator] API Calls: ${metrics.apiCalls} (${metrics.cacheHits} cache hits)`);
-  console.log(`[orchestrator] Tokens: ${metrics.totalInputTokens} in / ${metrics.totalOutputTokens} out`);
+  console.log(
+    `[orchestrator] Tokens: ${metrics.totalInputTokens} in / ${metrics.totalOutputTokens} out`
+  );
   console.log(`[orchestrator] Cost: $${metrics.totalCost.toFixed(6)}`);
   console.log(`[orchestrator] Latency: ${metrics.totalLatencyMs}ms total`);
   console.log(`[orchestrator] Retries: ${metrics.totalRetries}`);
@@ -65,9 +67,9 @@ const OrchestratorInputSchema = z.object({
   pdfPath: z.string(),
 
   /** Page range to parse - either a single page [n] or a range [start, end] */
-  pages: z.tuple([z.number().int().positive()]).or(
-    z.tuple([z.number().int().positive(), z.number().int().positive()])
-  ),
+  pages: z
+    .tuple([z.number().int().positive()])
+    .or(z.tuple([z.number().int().positive(), z.number().int().positive()])),
 
   /** Array of paths to hint images */
   hintPaths: z.array(z.string()),
@@ -119,9 +121,10 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
 
     // Step 2: Run hint tagger (if hints provided)
     console.log('[orchestrator] Step 2: Analyzing hints...');
-    const hintTagResult = hintBuffers.length > 0
-      ? await tagHints({ hints: hintBuffers })
-      : { output: { tags: [] }, metrics: [] };
+    const hintTagResult =
+      hintBuffers.length > 0
+        ? await tagHints({ hints: hintBuffers })
+        : { output: { tags: [] }, metrics: [] };
     const hintTags = hintTagResult.output.tags;
     // Collect metrics from hint tagger
     for (const m of hintTagResult.metrics) {
@@ -144,11 +147,14 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
     // Step 4: Group questions by crossId and type
     console.log('[orchestrator] Step 4: Grouping questions...');
 
-    const questionMap = new Map<string, {
-      type: string;
-      pages: Set<number>;
-      description: string;
-    }>();
+    const questionMap = new Map<
+      string,
+      {
+        type: string;
+        pages: Set<number>;
+        description: string;
+      }
+    >();
 
     for (const pageMap of pageMaps) {
       for (const item of pageMap.included) {
@@ -179,9 +185,10 @@ export async function orchestrate(payload: OrchestratorInput): Promise<QuestionG
       const questionPages = Array.from(questionInfo.pages).sort((a, b) => a - b);
       const questionStartPage = questionPages[0]!;
       const questionEndPage = questionPages[questionPages.length - 1]!;
-      const pageRange: [number] | [number, number] = questionStartPage === questionEndPage
-        ? [questionStartPage]
-        : [questionStartPage, questionEndPage];
+      const pageRange: [number] | [number, number] =
+        questionStartPage === questionEndPage
+          ? [questionStartPage]
+          : [questionStartPage, questionEndPage];
 
       const parserInput = {
         pdf: pdfBuffer,

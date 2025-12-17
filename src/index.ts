@@ -18,9 +18,4 @@ export {
 } from './core/ai/index.js';
 
 // Export cache utilities (with aliases to avoid conflicts)
-export {
-  getCached,
-  setCached,
-  generateCacheKey,
-  cache,
-} from './core/cache/index.js';
+export { getCached, setCached, generateCacheKey, cache } from './core/cache/index.js';

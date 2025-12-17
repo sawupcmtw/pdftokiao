@@ -50,7 +50,9 @@ export async function tagHints(payload: HintTaggerInput): Promise<HintTaggerResu
         throw new Error(`Hint buffer at index ${imageIndex} is undefined`);
       }
 
-      console.log(`[hint-tagger] Analyzing hint image ${imageIndex + 1}/${payload.hints.length}...`);
+      console.log(
+        `[hint-tagger] Analyzing hint image ${imageIndex + 1}/${payload.hints.length}...`
+      );
 
       // Create prompt for hint analysis
       const prompt = `Analyze this hint image and determine the question type.
@@ -93,7 +95,9 @@ Return the result in the specified format.`;
         description: result.description,
       });
 
-      console.log(`[hint-tagger] Hint ${imageIndex + 1}: type=${result.type}, description="${result.description}"`);
+      console.log(
+        `[hint-tagger] Hint ${imageIndex + 1}: type=${result.type}, description="${result.description}"`
+      );
     }
 
     console.log(`[hint-tagger] Completed tagging ${tags.length} hints`);
