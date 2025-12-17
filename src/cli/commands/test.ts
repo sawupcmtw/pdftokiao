@@ -1,6 +1,6 @@
 import { Command } from 'commander'
-import { writeFile, mkdir } from 'fs/promises'
-import { join, resolve } from 'path'
+import { writeFile, mkdir, readdir } from 'fs/promises'
+import { join, resolve, dirname } from 'path'
 import { randomUUID } from 'crypto'
 import {
   discoverTestCases,
@@ -12,7 +12,7 @@ import {
 } from '../../core/loader/test-loader.js'
 import { loadPdf, loadImages, PdfLoaderError, ImageLoaderError } from '../../core/loader/index.js'
 import { ParseInputSchema } from '../../core/schemas/index.js'
-import { orchestrate } from '../../trigger/index.js'
+import { orchestrate, orchestrateDeck } from '../../trigger/index.js'
 
 // Default test files directory
 const DEFAULT_TEST_DIR = './test_files'
@@ -29,7 +29,6 @@ export function createTestCommand(): Command {
     .option('-l, --list', 'List all discovered test cases')
     .option('-r, --run', 'Run the parser on the test case')
     .option('-d, --dir <path>', 'Test files directory', DEFAULT_TEST_DIR)
-    .option('-o, --output <dir>', 'Output directory for results', './output')
     .option('--material-id <id>', 'Override material ID (default: auto-generated)')
     .option('--import-key <key>', 'Override import key (default: auto-generated UUID)')
     .action(async (name: string | undefined, options) => {
@@ -140,11 +139,27 @@ async function listTestCases(testDir: string): Promise<void> {
 }
 
 /**
+ * Get the next available run number by scanning existing output folders
+ */
+async function getNextRunNumber(testCasePath: string): Promise<number> {
+  const outputsDir = join(testCasePath, 'outputs')
+  try {
+    const entries = await readdir(outputsDir, { withFileTypes: true })
+    const runNumbers = entries
+      .filter((e) => e.isDirectory() && /^\d+$/.test(e.name))
+      .map((e) => parseInt(e.name, 10))
+    return runNumbers.length > 0 ? Math.max(...runNumbers) + 1 : 1
+  } catch {
+    return 1 // outputs folder doesn't exist yet
+  }
+}
+
+/**
  * Run the parser on a test case
  */
 async function runTestCase(
   testCase: TestCase,
-  options: { output: string; materialId?: string; importKey?: string }
+  options: { materialId?: string; importKey?: string }
 ): Promise<void> {
   console.log('\n=== Running Parser ===\n')
 
@@ -199,31 +214,75 @@ async function runTestCase(
   })
   console.log('  Input validated successfully')
 
-  // Run the orchestrator pipeline
-  console.log('\n=== Running Pipeline ===\n')
+  // Run both orchestrators
+  console.log('\n=== Running Pipelines ===\n')
 
-  const output = await orchestrate({
-    pdfPath: testCase.pdfPath,
-    pages: testCase.pages,
-    hintPaths: testCase.hintPaths,
-    instruction: testCase.instruction,
-    materialId,
-    importKey,
-    supplementaryPdfs: testCase.supplementaryPdfs,
-  })
+  // Run question orchestrator
+  let questionGroupOutput = null
+  try {
+    console.log('[test] Running question group pipeline...')
+    questionGroupOutput = await orchestrate({
+      pdfPath: testCase.pdfPath,
+      pages: testCase.pages,
+      hintPaths: testCase.hintPaths,
+      instruction: testCase.instruction,
+      materialId,
+      importKey,
+      supplementaryPdfs: testCase.supplementaryPdfs,
+    })
+    console.log('[test] Question group pipeline completed')
+  } catch (e) {
+    console.log(
+      `[test] Question parsing failed: ${e instanceof Error ? e.message : 'Unknown error'}`
+    )
+  }
+
+  // Run deck orchestrator
+  let deckOutput = null
+  try {
+    console.log('[test] Running deck pipeline...')
+    deckOutput = await orchestrateDeck({
+      pdfPath: testCase.pdfPath,
+      pages: testCase.pages,
+      deckName: testCase.name,
+      importKey,
+      instruction: testCase.instruction,
+    })
+    console.log('[test] Deck pipeline completed')
+  } catch (e) {
+    console.log(`[test] Deck parsing failed: ${e instanceof Error ? e.message : 'Unknown error'}`)
+  }
+
+  // Check if we have any output
+  if (!questionGroupOutput && !deckOutput) {
+    throw new Error('Both question and deck parsing failed - no output generated')
+  }
 
   // Create output directory
-  const outputDir = resolve(options.output)
-  console.log(`Creating output directory: ${outputDir}`)
+  const testCasePath = dirname(testCase.pdfPath)
+  const runNumber = await getNextRunNumber(testCasePath)
+  const outputDir = join(testCasePath, 'outputs', String(runNumber))
+  console.log(`\nCreating output directory: ${outputDir}`)
   await mkdir(outputDir, { recursive: true })
 
-  // Write output
-  const outputFileName = `test_${testCase.name}_${Date.now()}.json`
-  const outputPath = join(outputDir, outputFileName)
+  // Write outputs
+  const writtenFiles: string[] = []
 
-  console.log(`Writing output to: ${outputPath}`)
-  await writeFile(outputPath, JSON.stringify(output, null, 2), 'utf-8')
+  if (questionGroupOutput) {
+    const questionGroupPath = join(outputDir, 'question-group.json')
+    await writeFile(questionGroupPath, JSON.stringify(questionGroupOutput, null, 2), 'utf-8')
+    writtenFiles.push(questionGroupPath)
+  }
+
+  if (deckOutput) {
+    const deckPath = join(outputDir, 'deck.json')
+    await writeFile(deckPath, JSON.stringify(deckOutput, null, 2), 'utf-8')
+    writtenFiles.push(deckPath)
+  }
 
   console.log('\n=== Success ===')
-  console.log(`Output written to: ${outputPath}`)
+  console.log(`Run #${runNumber} - Output written to:`)
+  for (const file of writtenFiles) {
+    console.log(`  ${file}`)
+  }
 }
