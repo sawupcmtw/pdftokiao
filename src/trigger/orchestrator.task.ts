@@ -14,7 +14,7 @@ import type {
 } from '../core/schemas/index.js'
 import type { CallMetrics } from '../core/ai/gemini-client.js'
 import { tagHints } from './hint-tagger.task.js'
-import { analyzePages } from './page-analyzer.task.js'
+import { analyzePages, QuestionTypeEnum, type QuestionType } from './page-analyzer.task.js'
 import {
   parseSingleSelect,
   parseMultiSelect,
@@ -104,6 +104,9 @@ const OrchestratorInputSchema = z.object({
       })
     )
     .optional(),
+
+  /** Optional filter to only parse specific question types */
+  onlyTypes: z.array(QuestionTypeEnum).optional(),
 })
 
 export type OrchestratorInput = z.infer<typeof OrchestratorInputSchema>
@@ -129,6 +132,9 @@ export async function orchestrate(payload: OrchestratorInput): Promise<Orchestra
     console.log(`[orchestrator] PDF: ${payload.pdfPath}`)
     console.log(`[orchestrator] Pages: ${startPage}-${endPage}`)
     console.log(`[orchestrator] Hints: ${payload.hintPaths.length} files`)
+    if (payload.onlyTypes && payload.onlyTypes.length > 0) {
+      console.log(`[orchestrator] Type filter: ${payload.onlyTypes.join(', ')}`)
+    }
 
     // Initialize metrics accumulator and call logs
     const pipelineMetrics = createMetricsAccumulator()
@@ -162,6 +168,7 @@ export async function orchestrate(payload: OrchestratorInput): Promise<Orchestra
       pdf: pdfBuffer,
       pages: payload.pages,
       hintTags,
+      instruction: payload.instruction,
     })
     const pageMaps = pageAnalyzerResult.output.pageMaps
     // Collect metrics from page analyzer
@@ -185,6 +192,13 @@ export async function orchestrate(payload: OrchestratorInput): Promise<Orchestra
 
     for (const pageMap of pageMaps) {
       for (const item of pageMap.included) {
+        // Skip types not in filter (if filter is specified)
+        if (payload.onlyTypes && payload.onlyTypes.length > 0) {
+          if (!payload.onlyTypes.includes(item.type as QuestionType)) {
+            continue
+          }
+        }
+
         // Handle deck content separately
         if (item.type === 'deck') {
           if (!deckPages.includes(pageMap.page)) {
@@ -207,7 +221,8 @@ export async function orchestrate(payload: OrchestratorInput): Promise<Orchestra
       }
     }
 
-    console.log(`[orchestrator] Found ${questionMap.size} questions`)
+    const filterSuffix = payload.onlyTypes?.length ? ' (after type filter)' : ''
+    console.log(`[orchestrator] Found ${questionMap.size} questions${filterSuffix}`)
     if (deckPages.length > 0) {
       console.log(
         `[orchestrator] Found deck content on pages: ${deckPages.sort((a, b) => a - b).join(', ')}`

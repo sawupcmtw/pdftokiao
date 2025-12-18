@@ -11,11 +11,39 @@ import {
 } from '../../core/loader/test-loader.js'
 import { loadPdf, loadImages, PdfLoaderError, ImageLoaderError } from '../../core/loader/index.js'
 import { ParseInputSchema } from '../../core/schemas/index.js'
-import { orchestrate } from '../../trigger/index.js'
+import { orchestrate, type QuestionType } from '../../trigger/index.js'
 import type { OrchestratorResult } from '../../core/schemas/index.js'
 
 // Default test files directory
 const DEFAULT_TEST_DIR = './test_files'
+
+// Valid question types for filtering
+const VALID_TYPES: QuestionType[] = [
+  'single_select',
+  'multi_select',
+  'fill_in',
+  'short_answer',
+  'emi_single_select',
+  'deck',
+]
+
+/**
+ * Parse comma-separated type filter string into array of QuestionType
+ */
+function parseTypeFilter(filterStr: string | undefined): QuestionType[] | undefined {
+  if (!filterStr) return undefined
+
+  const types = filterStr.split(',').map((t) => t.trim())
+
+  // Validate each type
+  for (const t of types) {
+    if (!VALID_TYPES.includes(t as QuestionType)) {
+      throw new Error(`Invalid question type: "${t}". Valid types: ${VALID_TYPES.join(', ')}`)
+    }
+  }
+
+  return types as QuestionType[]
+}
 
 /**
  * Test command - Load and run test cases from organized folders
@@ -29,6 +57,10 @@ export function createTestCommand(): Command {
     .option('-l, --list', 'List all discovered test cases')
     .option('-r, --run', 'Run the parser on the test case')
     .option('-d, --dir <path>', 'Test files directory', DEFAULT_TEST_DIR)
+    .option(
+      '-t, --only-type <types>',
+      'Only parse specific question types (comma-separated: single_select,multi_select,fill_in,short_answer,emi_single_select,deck)'
+    )
     .action(async (name: string | undefined, options) => {
       try {
         const testDir = resolve(options.dir)
@@ -87,7 +119,11 @@ export function createTestCommand(): Command {
 
         // Run mode
         if (options.run) {
-          await runTestCase(testCase)
+          const onlyTypes = parseTypeFilter(options.onlyType)
+          if (onlyTypes) {
+            console.log(`\nFiltering to types: ${onlyTypes.join(', ')}`)
+          }
+          await runTestCase(testCase, onlyTypes)
         } else {
           console.log('\nUse --run to execute the parser on this test case.')
         }
@@ -247,7 +283,7 @@ function formatLogs(
 /**
  * Run the parser on a test case
  */
-async function runTestCase(testCase: TestCase): Promise<void> {
+async function runTestCase(testCase: TestCase, onlyTypes?: QuestionType[]): Promise<void> {
   console.log('\n=== Running Parser ===\n')
 
   // Load PDF
@@ -299,6 +335,7 @@ async function runTestCase(testCase: TestCase): Promise<void> {
       hintPaths: testCase.hintPaths,
       instruction: testCase.instruction,
       supplementaryPdfs: testCase.supplementaryPdfs,
+      onlyTypes,
     })
     console.log('[test] Pipeline completed')
   } catch (e) {

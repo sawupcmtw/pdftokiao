@@ -6,6 +6,8 @@ export {
   analyzePages,
   type PageAnalyzerInput,
   type PageAnalyzerOutput,
+  QuestionTypeEnum,
+  type QuestionType,
 } from './page-analyzer.task.js'
 
 // Parser functions
