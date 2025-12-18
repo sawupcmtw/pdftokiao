@@ -31,7 +31,7 @@ const PDF_PATTERN = /^CONTENT-\[(\d+)(?:,(\d+))?\]\.pdf$/i
 // Regex: matches supplementary PDF files with scope
 // Examples: SUPP-all.pdf, SUPP-pages-1-5.pdf, SUPP-type-single_select.pdf, SUPP-questions-1,2,5.pdf
 const SUPP_PATTERN =
-  /^SUPP-(all|pages-(\d+)(?:-(\d+))?|type-(single_select|multi_select|fill_in|short_answer)|questions-(\d+(?:,\d+)*))\.pdf$/i
+  /^SUPP-(all|pages-(\d+)(?:-(\d+))?|type-(single_select|multi_select|fill_in|short_answer|emi_single_select)|questions-(\d+(?:,\d+)*))\.pdf$/i
 
 // File name constants
 const INSTRUCTION_FILE = 'INST.txt'
@@ -100,6 +100,7 @@ export function parseSupplementaryFilename(filename: string): SupplementaryScope
       | 'multi_select'
       | 'fill_in'
       | 'short_answer'
+      | 'emi_single_select'
     return { type: 'type', questionType }
   }
 

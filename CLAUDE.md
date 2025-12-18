@@ -83,7 +83,7 @@ SUPP files provide answer keys, explanations, and vocabulary notes to enrich par
 | `SUPP-all.pdf`             | `SUPP-all.pdf`              | Applies to all questions |
 | `SUPP-pages-X.pdf`         | `SUPP-pages-5.pdf`          | Single page scope        |
 | `SUPP-pages-X-Y.pdf`       | `SUPP-pages-1-5.pdf`        | Page range scope         |
-| `SUPP-type-TYPE.pdf`       | `SUPP-type-fill_in.pdf`     | Question type scope      |
+| `SUPP-type-TYPE.pdf`       | `SUPP-type-emi_single_select.pdf` | Question type scope |
 | `SUPP-questions-X,Y,Z.pdf` | `SUPP-questions-1,5,10.pdf` | Specific questions       |
 
 **Supported Types:** `single_select`, `multi_select`, `fill_in`, `short_answer`, `emi_single_select`

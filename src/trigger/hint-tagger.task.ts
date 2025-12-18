@@ -33,7 +33,7 @@ export interface HintTaggerResult {
  *
  * This function analyzes hint images to detect question types and generate descriptions.
  * It processes each hint image using Gemini to identify:
- * - Question type (single_select, multi_select, fill_in, short_answer)
+ * - Question type (single_select, multi_select, fill_in, short_answer, emi_single_select)
  * - Description of the hint content
  */
 export async function tagHints(payload: HintTaggerInput): Promise<HintTaggerResult> {
@@ -60,6 +60,7 @@ Question types:
 - multi_select: Multiple choice question with multiple correct answers
 - fill_in: Fill-in-the-blank question
 - short_answer: Short answer or essay question
+- emi_single_select: Extended Matching Items question where multiple questions share a common set of options
 
 Provide:
 1. The question type
@@ -72,7 +73,7 @@ Return the result in the specified format.`
         prompt,
         images: [hintBuffer],
         schema: z.object({
-          type: z.enum(['single_select', 'multi_select', 'fill_in', 'short_answer']),
+          type: z.enum(['single_select', 'multi_select', 'fill_in', 'short_answer', 'emi_single_select']),
           description: z.string(),
         }),
         cacheKey: `hint-tag-${imageIndex}`,
