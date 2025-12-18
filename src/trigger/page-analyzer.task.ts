@@ -102,11 +102,27 @@ For each page in the range (${startPage} to ${endPage}), identify:
 2. The question type (single_select, multi_select, fill_in, short_answer, emi_single_select, deck)
 3. A brief description
 4. A crossId to group questions that span multiple pages (use format: "q1", "q2", etc.)
+5. A groupId to separate INDEPENDENT question sets (use format: "group-1", "group-2", etc.)
 
-Guidelines:
+Guidelines for crossId:
 - If a question spans multiple pages, use the same crossId for all pages
 - Each page can contain parts of multiple questions
 - Use the hints to help identify question types
+
+Guidelines for groupId:
+- Questions belong to the SAME group if they:
+  - Share a common reading passage or context
+  - Are part of the same EMI question set (with shared options)
+  - Appear under the same section header
+  - Are clearly meant to be answered together
+- Questions belong to DIFFERENT groups if they:
+  - Have different section headers (e.g., "Part A", "Part B", "Section 1")
+  - Have separate reading passages or contexts
+  - Are clearly independent question sets
+- Default to "group-1" if all questions appear to be part of the same set
+- EMI questions with shared options MUST all have the same groupId
+
+General guidelines:
 - Only analyze pages ${startPage} through ${endPage}
 - If user instructions specify to skip or exclude certain sections, do not include them in the output
 
@@ -127,6 +143,7 @@ For each page in the range (${startPage} to ${endPage}), identify:
    - deck: Vocabulary/flashcard content (word lists with definitions, translations, example sentences)
 3. A brief description
 4. A crossId to group related content (use format: "q1", "q2", etc.)
+5. A groupId to separate INDEPENDENT question sets (use format: "group-1", "group-2", etc.)
 
 Detection hints:
 - EMI (emi_single_select): Look for a shared option list at the top, followed by multiple questions that say things like "Which option best describes..." or "Match the following..."
@@ -135,10 +152,25 @@ Detection hints:
 - Fill-in: Look for _____ or blank spaces in sentences
 - Short answer: Look for questions followed by answer lines or "Explain..." type prompts
 
-Guidelines:
+Guidelines for crossId:
 - If content spans multiple pages, use the same crossId for all pages
 - Each page can contain different types of content
 - Be careful to distinguish EMI from regular multiple choice (EMI has SHARED options across questions)
+
+Guidelines for groupId:
+- Questions belong to the SAME group if they:
+  - Share a common reading passage or context
+  - Are part of the same EMI question set (with shared options)
+  - Appear under the same section header
+  - Are clearly meant to be answered together
+- Questions belong to DIFFERENT groups if they:
+  - Have different section headers (e.g., "Part A", "Part B", "Section 1")
+  - Have separate reading passages or contexts
+  - Are clearly independent question sets
+- Default to "group-1" if all questions appear to be part of the same set
+- EMI questions with shared options MUST all have the same groupId
+
+General guidelines:
 - Only analyze pages ${startPage} through ${endPage}
 - If user instructions specify to skip or exclude certain sections, do not include them in the output
 
@@ -171,7 +203,10 @@ Return a page map for each page showing what's included.`
     // Log details for debugging
     result.pageMaps.forEach((pageMap) => {
       const items = pageMap.included
-        .map((item) => `${item.type}${item.crossId ? ` (${item.crossId})` : ''}`)
+        .map((item) => {
+          const ids = [item.crossId, item.groupId].filter(Boolean).join(', ')
+          return `${item.type}${ids ? ` (${ids})` : ''}`
+        })
         .join(', ')
       console.log(`[page-analyzer] Page ${pageMap.page}: ${items}`)
     })

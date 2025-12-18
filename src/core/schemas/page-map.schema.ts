@@ -12,6 +12,9 @@ export const PageItemSchema = z.object({
 
   /** Optional cross-reference ID for items spanning multiple pages */
   crossId: z.string().optional(),
+
+  /** Optional group ID to separate independent question sets */
+  groupId: z.string().optional(),
 })
 
 /**

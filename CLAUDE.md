@@ -32,10 +32,11 @@ The PDF parsing pipeline (defined in `src/trigger/orchestrator.task.ts`) follows
 
 1. **Load files** - PDF and hint images via loaders (`src/core/loader/`)
 2. **Tag hints** - `tagHints()` analyzes hint images to detect question types (single_select, multi_select, fill_in, short_answer, emi_single_select, deck)
-3. **Analyze pages** - `analyzePages()` maps PDF pages to questions using hint context
-4. **Parse questions** - Type-specific parsers extract question data in parallel
-5. **Enrich answers** - `enrichAnswers()` extracts answers/explanations from SUPP PDFs
-6. **Merge output** - Results compiled into `QuestionGroup` JSON matching the Kiao import API format
+3. **Analyze pages** - `analyzePages()` maps PDF pages to questions using hint context, assigns `crossId` and `groupId`
+4. **Group questions** - Questions are grouped by `groupId`, then by `crossId` within each group
+5. **Parse questions** - Type-specific parsers extract question data in parallel (per group)
+6. **Enrich answers** - `enrichAnswers()` extracts answers/explanations from SUPP PDFs (per group)
+7. **Build output** - Results compiled into multiple `QuestionGroup` JSON objects matching the Kiao import API format
 
 **Note**: PDF-to-image extraction (`extractPages`) is not yet implemented - needs a library like pdf-to-png-converter.
 
@@ -57,6 +58,40 @@ All data structures use Zod schemas (`src/core/schemas/`):
 - `Deck` - Vocabulary flashcard format with `Card` items
 - Each question has `attributes`, optional `explanation`, and `options` (for select types)
 - EMI questions share options at the QuestionGroup level
+
+### Question Grouping
+
+The page analyzer assigns two IDs to each detected item:
+
+- **`crossId`** - Links pages of the same question (for multi-page questions)
+- **`groupId`** - Separates independent question sets into different `QuestionGroup` outputs
+
+**Grouping Rules (AI-determined):**
+
+Questions belong to the **same group** if they:
+- Share a common reading passage or context
+- Are part of the same EMI question set (with shared options)
+- Appear under the same section header
+- Are clearly meant to be answered together
+
+Questions belong to **different groups** if they:
+- Have different section headers (e.g., "Part A", "Part B", "Section 1")
+- Have separate reading passages or contexts
+- Are clearly independent question sets
+
+**Output Format:**
+
+```json
+[
+  { "data": { "type": "question_group", "questions": [...] } },
+  { "data": { "type": "question_group", "questions": [...] } },
+  { "data": { "type": "deck", ... } }
+]
+```
+
+**Position Numbering:** Global positions across all groups (1, 2, 3...) for SUPP PDF compatibility.
+
+**EMI Constraint:** EMI questions with shared options must stay in the same group.
 
 ### Test Files Structure
 
