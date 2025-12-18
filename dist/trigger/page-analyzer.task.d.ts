@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { type CallMetrics } from '../core/ai/gemini-client.js';
+export declare const QuestionTypeEnum: z.ZodEnum<["single_select", "multi_select", "fill_in", "short_answer", "emi_single_select", "deck"]>;
+export type QuestionType = z.infer<typeof QuestionTypeEnum>;
 declare const PageAnalyzerInputSchema: z.ZodObject<{
     pdf: z.ZodType<Buffer<ArrayBufferLike>, z.ZodTypeDef, Buffer<ArrayBufferLike>>;
     pages: z.ZodUnion<[z.ZodTuple<[z.ZodNumber], null>, z.ZodTuple<[z.ZodNumber, z.ZodNumber], null>]>;
@@ -16,6 +18,7 @@ declare const PageAnalyzerInputSchema: z.ZodObject<{
         imageIndex: number;
         description: string;
     }>, "many">;
+    instruction: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     pdf: Buffer<ArrayBufferLike>;
     pages: [number, number] | [number];
@@ -24,6 +27,7 @@ declare const PageAnalyzerInputSchema: z.ZodObject<{
         imageIndex: number;
         description: string;
     }[];
+    instruction?: string | undefined;
 }, {
     pdf: Buffer<ArrayBufferLike>;
     pages: [number, number] | [number];
@@ -32,6 +36,7 @@ declare const PageAnalyzerInputSchema: z.ZodObject<{
         imageIndex: number;
         description: string;
     }[];
+    instruction?: string | undefined;
 }>;
 export type PageAnalyzerInput = z.infer<typeof PageAnalyzerInputSchema>;
 declare const PageAnalyzerOutputSchema: z.ZodObject<{

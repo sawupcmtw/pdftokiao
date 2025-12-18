@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { generateStructured } from '../core/ai/gemini-client.js';
 import { PageMapSchema } from '../core/schemas/index.js';
-const QuestionTypeEnum = z.enum([
+export const QuestionTypeEnum = z.enum([
     'single_select',
     'multi_select',
     'fill_in',
@@ -19,6 +19,7 @@ const PageAnalyzerInputSchema = z.object({
         type: QuestionTypeEnum,
         description: z.string(),
     })),
+    instruction: z.string().optional(),
 });
 const PageAnalyzerOutputSchema = z.object({
     pageMaps: z.array(PageMapSchema),
@@ -34,9 +35,12 @@ export async function analyzePages(payload) {
                 .map((tag) => `- Hint ${tag.imageIndex + 1}: ${tag.type} - ${tag.description}`)
                 .join('\n')
             : '';
+        const instructionSection = payload.instruction
+            ? `\nUser instructions: ${payload.instruction}\nFollow these instructions when deciding what content to include or exclude.\n`
+            : '';
         const prompt = hasHints
             ? `Analyze pages ${startPage} to ${endPage} of this PDF and map each page to the questions it contains.
-
+${instructionSection}
 Available hints:
 ${hintsSummary}
 
@@ -51,12 +55,13 @@ Guidelines:
 - Each page can contain parts of multiple questions
 - Use the hints to help identify question types
 - Only analyze pages ${startPage} through ${endPage}
+- If user instructions specify to skip or exclude certain sections, do not include them in the output
 
 Return a page map for each page showing what's included.`
             : `Analyze pages ${startPage} to ${endPage} of this PDF and AUTO-DETECT the content type and questions.
 
 NO HINT IMAGES WERE PROVIDED - you must detect the content type directly from the PDF.
-
+${instructionSection}
 For each page in the range (${startPage} to ${endPage}), identify:
 1. What question(s) or content appear on that page
 2. The content type - detect from these options:
@@ -82,15 +87,20 @@ Guidelines:
 - Each page can contain different types of content
 - Be careful to distinguish EMI from regular multiple choice (EMI has SHARED options across questions)
 - Only analyze pages ${startPage} through ${endPage}
+- If user instructions specify to skip or exclude certain sections, do not include them in the output
 
 Return a page map for each page showing what's included.`;
+        const instructionHash = payload.instruction
+            ? `-inst-${Buffer.from(payload.instruction).toString('base64').slice(0, 16)}`
+            : '';
+        const cacheKey = `page-analysis-${startPage}-${endPage}${instructionHash}`;
         const { object: result, metrics } = await generateStructured({
             prompt,
             pdf: payload.pdf,
             schema: z.object({
                 pageMaps: z.array(PageMapSchema),
             }),
-            cacheKey: `page-analysis-${startPage}-${endPage}`,
+            cacheKey,
         });
         const metricsStr = metrics.cacheHit
             ? 'CACHE HIT'

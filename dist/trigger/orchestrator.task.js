@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { loadPdf, loadImages } from '../core/loader/index.js';
 import { tagHints } from './hint-tagger.task.js';
-import { analyzePages } from './page-analyzer.task.js';
+import { analyzePages, QuestionTypeEnum } from './page-analyzer.task.js';
 import { parseSingleSelect, parseMultiSelect, parseFillIn, parseShortAnswer, parseEMISingleSelect, parseDeck, } from './parsers/index.js';
 import { enrichAnswers } from './answer-enricher.task.js';
 function createMetricsAccumulator() {
@@ -53,6 +53,7 @@ const OrchestratorInputSchema = z.object({
         filename: z.string(),
     }))
         .optional(),
+    onlyTypes: z.array(QuestionTypeEnum).optional(),
 });
 export async function orchestrate(payload) {
     const startPage = payload.pages[0];
@@ -63,6 +64,9 @@ export async function orchestrate(payload) {
         console.log(`[orchestrator] PDF: ${payload.pdfPath}`);
         console.log(`[orchestrator] Pages: ${startPage}-${endPage}`);
         console.log(`[orchestrator] Hints: ${payload.hintPaths.length} files`);
+        if (payload.onlyTypes && payload.onlyTypes.length > 0) {
+            console.log(`[orchestrator] Type filter: ${payload.onlyTypes.join(', ')}`);
+        }
         const pipelineMetrics = createMetricsAccumulator();
         const callLogs = [];
         console.log('[orchestrator] Step 1: Loading files...');
@@ -84,6 +88,7 @@ export async function orchestrate(payload) {
             pdf: pdfBuffer,
             pages: payload.pages,
             hintTags,
+            instruction: payload.instruction,
         });
         const pageMaps = pageAnalyzerResult.output.pageMaps;
         addMetrics(pipelineMetrics, callLogs, pageAnalyzerResult.metrics, `Analyze pages ${startPage}-${endPage}`);
@@ -93,6 +98,11 @@ export async function orchestrate(payload) {
         const deckPages = [];
         for (const pageMap of pageMaps) {
             for (const item of pageMap.included) {
+                if (payload.onlyTypes && payload.onlyTypes.length > 0) {
+                    if (!payload.onlyTypes.includes(item.type)) {
+                        continue;
+                    }
+                }
                 if (item.type === 'deck') {
                     if (!deckPages.includes(pageMap.page)) {
                         deckPages.push(pageMap.page);
@@ -112,7 +122,8 @@ export async function orchestrate(payload) {
                 }
             }
         }
-        console.log(`[orchestrator] Found ${questionMap.size} questions`);
+        const filterSuffix = payload.onlyTypes?.length ? ' (after type filter)' : '';
+        console.log(`[orchestrator] Found ${questionMap.size} questions${filterSuffix}`);
         if (deckPages.length > 0) {
             console.log(`[orchestrator] Found deck content on pages: ${deckPages.sort((a, b) => a - b).join(', ')}`);
         }

@@ -18,6 +18,7 @@ declare const OrchestratorInputSchema: z.ZodObject<{
         filename: string;
         scope?: any;
     }>, "many">>;
+    onlyTypes: z.ZodOptional<z.ZodArray<z.ZodEnum<["single_select", "multi_select", "fill_in", "short_answer", "emi_single_select", "deck"]>, "many">>;
 }, "strip", z.ZodTypeAny, {
     pages: [number, number] | [number];
     pdfPath: string;
@@ -28,6 +29,7 @@ declare const OrchestratorInputSchema: z.ZodObject<{
         filename: string;
         scope?: any;
     }[] | undefined;
+    onlyTypes?: ("single_select" | "multi_select" | "fill_in" | "short_answer" | "emi_single_select" | "deck")[] | undefined;
 }, {
     pages: [number, number] | [number];
     pdfPath: string;
@@ -38,6 +40,7 @@ declare const OrchestratorInputSchema: z.ZodObject<{
         filename: string;
         scope?: any;
     }[] | undefined;
+    onlyTypes?: ("single_select" | "multi_select" | "fill_in" | "short_answer" | "emi_single_select" | "deck")[] | undefined;
 }>;
 export type OrchestratorInput = z.infer<typeof OrchestratorInputSchema>;
 export declare function orchestrate(payload: OrchestratorInput): Promise<OrchestratorResult>;

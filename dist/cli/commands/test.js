@@ -6,6 +6,25 @@ import { loadPdf, loadImages, PdfLoaderError, ImageLoaderError } from '../../cor
 import { ParseInputSchema } from '../../core/schemas/index.js';
 import { orchestrate } from '../../trigger/index.js';
 const DEFAULT_TEST_DIR = './test_files';
+const VALID_TYPES = [
+    'single_select',
+    'multi_select',
+    'fill_in',
+    'short_answer',
+    'emi_single_select',
+    'deck',
+];
+function parseTypeFilter(filterStr) {
+    if (!filterStr)
+        return undefined;
+    const types = filterStr.split(',').map((t) => t.trim());
+    for (const t of types) {
+        if (!VALID_TYPES.includes(t)) {
+            throw new Error(`Invalid question type: "${t}". Valid types: ${VALID_TYPES.join(', ')}`);
+        }
+    }
+    return types;
+}
 export function createTestCommand() {
     const testCmd = new Command('test');
     testCmd
@@ -14,6 +33,7 @@ export function createTestCommand() {
         .option('-l, --list', 'List all discovered test cases')
         .option('-r, --run', 'Run the parser on the test case')
         .option('-d, --dir <path>', 'Test files directory', DEFAULT_TEST_DIR)
+        .option('-t, --only-type <types>', 'Only parse specific question types (comma-separated: single_select,multi_select,fill_in,short_answer,emi_single_select,deck)')
         .action(async (name, options) => {
         try {
             const testDir = resolve(options.dir);
@@ -58,7 +78,11 @@ export function createTestCommand() {
                 console.log(`  "${testCase.instruction.substring(0, 100)}${testCase.instruction.length > 100 ? '...' : ''}"`);
             }
             if (options.run) {
-                await runTestCase(testCase);
+                const onlyTypes = parseTypeFilter(options.onlyType);
+                if (onlyTypes) {
+                    console.log(`\nFiltering to types: ${onlyTypes.join(', ')}`);
+                }
+                await runTestCase(testCase, onlyTypes);
             }
             else {
                 console.log('\nUse --run to execute the parser on this test case.');
@@ -176,7 +200,7 @@ function formatLogs(result, testCase, runNumber, questionCount, deckCardCount) {
     lines.push('='.repeat(60));
     return lines.join('\n');
 }
-async function runTestCase(testCase) {
+async function runTestCase(testCase, onlyTypes) {
     console.log('\n=== Running Parser ===\n');
     console.log(`\nLoading PDF: ${testCase.pdfPath}`);
     let pdfBuffer;
@@ -221,6 +245,7 @@ async function runTestCase(testCase) {
             hintPaths: testCase.hintPaths,
             instruction: testCase.instruction,
             supplementaryPdfs: testCase.supplementaryPdfs,
+            onlyTypes,
         });
         console.log('[test] Pipeline completed');
     }

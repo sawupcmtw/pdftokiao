@@ -7,7 +7,7 @@ export class TestLoaderError extends Error {
     }
 }
 const PDF_PATTERN = /^CONTENT-\[(\d+)(?:,(\d+))?\]\.pdf$/i;
-const SUPP_PATTERN = /^SUPP-(all|pages-(\d+)(?:-(\d+))?|type-(single_select|multi_select|fill_in|short_answer)|questions-(\d+(?:,\d+)*))\.pdf$/i;
+const SUPP_PATTERN = /^SUPP-(all|pages-(\d+)(?:-(\d+))?|type-(single_select|multi_select|fill_in|short_answer|emi_single_select)|questions-(\d+(?:,\d+)*))\.pdf$/i;
 const INSTRUCTION_FILE = 'INST.txt';
 const HINT_PATTERN = /^IMAGE-.+\.(jpg|jpeg|png)$/i;
 export function parsePdfFilename(filename) {
